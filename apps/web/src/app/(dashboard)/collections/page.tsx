@@ -28,6 +28,8 @@ import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ProcessFlow } from "@/components/shared/process-flow";
+import { procesoCobranzaProcess } from "@/lib/process-definitions";
 
 interface Invoice {
   id: string;
@@ -286,6 +288,9 @@ export default function CollectionsPage() {
           Gestión de facturas y casos de cobranza
         </p>
       </div>
+
+      {/* Process Flow */}
+      <ProcessFlow process={procesoCobranzaProcess} />
 
       {/* Stats */}
       {stats && (

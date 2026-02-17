@@ -21,6 +21,8 @@ import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ProcessFlow } from "@/components/shared/process-flow";
+import { documentosNotarialesProcess } from "@/lib/process-definitions";
 
 interface NotaryDoc {
   id: string;
@@ -156,6 +158,9 @@ export default function NotaryPage() {
           Seguimiento de documentos en notarías
         </p>
       </div>
+
+      {/* Process Flow */}
+      <ProcessFlow process={documentosNotarialesProcess} />
 
       {/* Stats */}
       {stats && (

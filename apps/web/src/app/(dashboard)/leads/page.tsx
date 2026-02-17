@@ -10,6 +10,8 @@ import { DataTable, Column } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { UserPlus, Plus, Loader2, X, AlertCircle } from "lucide-react";
+import { ProcessFlow, AgentsPanel } from "@/components/shared/process-flow";
+import { recepcionVisitaProcess, recepcionTelefonoProcess } from "@/lib/process-definitions";
 
 interface Lead {
   id: number;
@@ -240,6 +242,12 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
+
+      {/* Process Flows */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <ProcessFlow process={recepcionVisitaProcess} />
+        <ProcessFlow process={recepcionTelefonoProcess} />
+      </div>
 
       {leads.length === 0 ? (
         <EmptyState

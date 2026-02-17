@@ -24,6 +24,8 @@ import { useAuth } from "@/lib/auth";
 import { cn, formatDate, formatDateTime } from "@/lib/utils";
 import { DataTable } from "@/components/shared/data-table";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ProcessFlow } from "@/components/shared/process-flow";
+import { legalbotScraperProcess } from "@/lib/process-definitions";
 
 interface ScraperJob {
   id: string;
@@ -228,6 +230,9 @@ export default function ScraperPage() {
           Nuevo Trabajo
         </button>
       </div>
+
+      {/* Process Flow */}
+      <ProcessFlow process={legalbotScraperProcess} />
 
       {/* New Job Form */}
       {showNewJobForm && (

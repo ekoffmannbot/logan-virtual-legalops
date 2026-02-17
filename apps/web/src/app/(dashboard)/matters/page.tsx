@@ -10,6 +10,8 @@ import { DataTable, Column } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Briefcase, Plus, Loader2, X, AlertCircle, Filter } from "lucide-react";
+import { ProcessFlow } from "@/components/shared/process-flow";
+import { causasJPLProcess } from "@/lib/process-definitions";
 
 interface Matter {
   id: number;
@@ -158,6 +160,9 @@ export default function MattersPage() {
           Nuevo Caso
         </button>
       </div>
+
+      {/* Process Flow */}
+      <ProcessFlow process={causasJPLProcess} />
 
       {/* Filters */}
       <div className="flex items-center gap-3">

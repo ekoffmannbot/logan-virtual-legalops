@@ -18,6 +18,8 @@ import {
   LayoutGrid,
   List,
 } from "lucide-react";
+import { ProcessFlow } from "@/components/shared/process-flow";
+import { seguimientoPropuestasProcess } from "@/lib/process-definitions";
 
 interface Proposal {
   id: number;
@@ -160,6 +162,7 @@ export default function ProposalsPage() {
           <p className="text-muted-foreground">Pipeline de propuestas comerciales</p>
         </div>
         <div className="flex items-center gap-3">
+
           {/* View Toggle */}
           <div className="flex rounded-lg border bg-white p-1">
             <button
@@ -196,6 +199,9 @@ export default function ProposalsPage() {
           </button>
         </div>
       </div>
+
+      {/* Process Flow */}
+      <ProcessFlow process={seguimientoPropuestasProcess} />
 
       {/* Create Dialog */}
       {showCreate && (

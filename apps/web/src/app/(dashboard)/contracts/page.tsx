@@ -21,6 +21,8 @@ import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ProcessFlow } from "@/components/shared/process-flow";
+import { contratoMandatoProcess } from "@/lib/process-definitions";
 
 interface Contract {
   id: string;
@@ -144,6 +146,9 @@ export default function ContractsPage() {
           Nuevo Contrato
         </button>
       </div>
+
+      {/* Process Flow */}
+      <ProcessFlow process={contratoMandatoProcess} />
 
       {/* Stats */}
       {stats && (

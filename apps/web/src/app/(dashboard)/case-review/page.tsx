@@ -19,6 +19,8 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn, formatDate } from "@/lib/utils";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ProcessFlow } from "@/components/shared/process-flow";
+import { revisionCausasProcess } from "@/lib/process-definitions";
 
 interface Matter {
   id: string;
@@ -121,6 +123,9 @@ export default function CaseReviewPage() {
           Revisa los movimientos de las causas abiertas del día
         </p>
       </div>
+
+      {/* Process Flow */}
+      <ProcessFlow process={revisionCausasProcess} />
 
       {/* Summary */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

@@ -23,6 +23,8 @@ import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ProcessFlow } from "@/components/shared/process-flow";
+import { respuestaCorreosProcess } from "@/lib/process-definitions";
 
 interface EmailTicket {
   id: string;
@@ -219,6 +221,9 @@ export default function EmailTicketsPage() {
           Gestión de correos entrantes con seguimiento de SLA
         </p>
       </div>
+
+      {/* Process Flow */}
+      <ProcessFlow process={respuestaCorreosProcess} />
 
       {/* Stats */}
       {stats && (
