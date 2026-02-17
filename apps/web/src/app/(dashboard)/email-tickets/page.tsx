@@ -1,311 +1,341 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Mail,
-  Search,
-  Filter,
-  ChevronDown,
-  Clock,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  User,
-  Inbox,
-} from "lucide-react";
+import { Mail, Search, Loader2, Inbox, Calendar, User, Eye, EyeOff } from "lucide-react";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
-import { cn, formatDate, formatDateTime } from "@/lib/utils";
-import { EMAIL_TICKET_STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
-import { DataTable } from "@/components/shared/data-table";
-import { StatusBadge } from "@/components/shared/status-badge";
-import { StatCard } from "@/components/shared/stat-card";
+import { cn, formatDate } from "@/lib/utils";
+import { EMAIL_TICKET_STATUS_LABELS } from "@/lib/constants";
+import {
+  computeUrgency,
+  getProcessProgress,
+  getNextActionLabel,
+  getTimeUntil,
+} from "@/lib/process-status-map";
+import type { UrgencyLevel } from "@/lib/process-status-map";
+import { ItemCard } from "@/components/shared/item-card";
+import { AgentStatusBar } from "@/components/shared/agent-message";
+import { UrgencySection } from "@/components/shared/urgency-section";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ProcessFlow } from "@/components/shared/process-flow";
 import { respuestaCorreosProcess } from "@/lib/process-definitions";
 
+/* ------------------------------------------------------------------ */
+/* TYPES                                                               */
+/* ------------------------------------------------------------------ */
+
 interface EmailTicket {
-  id: string;
+  id: number;
   subject: string;
   from_email: string;
   from_name: string;
-  received_at: string;
   status: string;
-  assigned_to: string | null;
-  assigned_to_name: string | null;
-  sla_24h_deadline: string;
-  sla_48h_deadline: string;
-  sla_24h_met: boolean | null;
-  sla_48h_met: boolean | null;
+  priority: string;
+  assigned_to_name: string;
+  matter_title?: string;
   created_at: string;
+  sla_deadline?: string | null;
+  sla_24h_deadline?: string | null;
+  process_id: string;
 }
 
-function getSlaStatus(deadline: string, met: boolean | null): "ok" | "warning" | "breached" | "met" {
-  if (met === true) return "met";
-  if (met === false) return "breached";
-
-  const now = new Date();
-  const deadlineDate = new Date(deadline);
-  const hoursRemaining = (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-  if (hoursRemaining <= 0) return "breached";
-  if (hoursRemaining <= 4) return "warning";
-  return "ok";
-}
-
-function SlaIndicator({
-  deadline,
-  met,
-  label,
-}: {
-  deadline: string;
-  met: boolean | null;
-  label: string;
-}) {
-  const status = getSlaStatus(deadline, met);
-
-  return (
-    <div
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-        status === "met" && "bg-green-100 text-green-700",
-        status === "ok" && "bg-blue-100 text-blue-700",
-        status === "warning" && "bg-yellow-100 text-yellow-700",
-        status === "breached" && "bg-red-100 text-red-700"
-      )}
-    >
-      {status === "met" && <CheckCircle2 className="h-3 w-3" />}
-      {status === "ok" && <Clock className="h-3 w-3" />}
-      {status === "warning" && <AlertTriangle className="h-3 w-3" />}
-      {status === "breached" && <XCircle className="h-3 w-3" />}
-      {label}
-    </div>
-  );
-}
+/* ------------------------------------------------------------------ */
+/* PAGE                                                                */
+/* ------------------------------------------------------------------ */
 
 export default function EmailTicketsPage() {
-  const router = useRouter();
-  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showProcessFlow, setShowProcessFlow] = useState(false);
 
+  /* ---- Data fetching ---- */
   const { data: tickets = [], isLoading } = useQuery({
-    queryKey: ["email-tickets", statusFilter],
-    queryFn: () =>
-      api.get<EmailTicket[]>(
-        statusFilter !== "all"
-          ? `/email-tickets?status=${statusFilter}`
-          : "/email-tickets"
-      ),
+    queryKey: ["email-tickets"],
+    queryFn: () => api.get<EmailTicket[]>("/email-tickets"),
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ["email-tickets", "stats"],
-    queryFn: () =>
-      api.get<{
-        total: number;
-        open: number;
-        sla_at_risk: number;
-        sla_breached: number;
-        unassigned: number;
-      }>("/email-tickets/stats"),
-  });
+  /* ---- Search filter ---- */
+  const filtered = useMemo(() => {
+    if (!searchTerm.trim()) return tickets;
+    const q = searchTerm.toLowerCase();
+    return tickets.filter(
+      (t) =>
+        t.subject.toLowerCase().includes(q) ||
+        t.from_name.toLowerCase().includes(q),
+    );
+  }, [tickets, searchTerm]);
 
-  const filteredTickets = tickets.filter(
-    (ticket) =>
-      ticket.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.from_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.from_email.toLowerCase().includes(searchTerm.toLowerCase())
+  /* ---- Enrich & sort by urgency ---- */
+  const enriched = useMemo(() => {
+    return filtered
+      .map((ticket) => {
+        const urgency = computeUrgency(ticket);
+        const progress = getProcessProgress(
+          ticket.process_id || "respuesta-correos",
+          ticket.status,
+        );
+        const actionLabel = getNextActionLabel(
+          ticket.process_id || "respuesta-correos",
+          ticket.status,
+        );
+        const slaText = ticket.sla_deadline
+          ? getTimeUntil(ticket.sla_deadline)
+          : ticket.sla_24h_deadline
+            ? getTimeUntil(ticket.sla_24h_deadline)
+            : undefined;
+
+        return { ticket, urgency, progress, actionLabel, slaText };
+      })
+      .sort((a, b) => {
+        const order: Record<UrgencyLevel, number> = {
+          urgent: 0,
+          warning: 1,
+          normal: 2,
+        };
+        return order[a.urgency] - order[b.urgency];
+      });
+  }, [filtered]);
+
+  /* ---- Group into urgency sections ---- */
+  const closedStatuses = new Set(["closed", "receipt_confirmed"]);
+
+  const urgentItems = enriched.filter(
+    (e) => e.urgency === "urgent" && !closedStatuses.has(e.ticket.status),
+  );
+  const normalItems = enriched.filter(
+    (e) => e.urgency !== "urgent" && !closedStatuses.has(e.ticket.status),
+  );
+  const closedItems = enriched.filter((e) =>
+    closedStatuses.has(e.ticket.status),
   );
 
-  const getRowClassName = (ticket: EmailTicket): string => {
-    const sla24 = getSlaStatus(ticket.sla_24h_deadline, ticket.sla_24h_met);
-    const sla48 = getSlaStatus(ticket.sla_48h_deadline, ticket.sla_48h_met);
+  /* ---- Compute header stats ---- */
+  const totalCount = tickets.length;
+  const openCount = tickets.filter(
+    (t) => !closedStatuses.has(t.status),
+  ).length;
+  const slaAtRiskCount = tickets.filter((t) => {
+    const u = computeUrgency(t);
+    return (u === "urgent" || u === "warning") && !closedStatuses.has(t.status);
+  }).length;
 
-    if (sla24 === "breached" || sla48 === "breached") {
-      return "bg-red-50 hover:bg-red-100";
+  /* ---- Agent counts for status bar ---- */
+  const agentCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of tickets) {
+      if (t.assigned_to_name && !closedStatuses.has(t.status)) {
+        counts[t.assigned_to_name] = (counts[t.assigned_to_name] || 0) + 1;
+      }
     }
-    if (sla24 === "warning" || sla48 === "warning") {
-      return "bg-yellow-50 hover:bg-yellow-100";
-    }
-    return "";
-  };
+    return counts;
+  }, [tickets]);
 
-  const columns = [
+  const agentBarData = [
     {
-      key: "subject",
-      label: "Asunto",
-      render: (ticket: EmailTicket) => (
-        <div className="max-w-xs">
-          <p className="font-medium text-gray-900 truncate">
-            {ticket.subject}
-          </p>
-        </div>
-      ),
+      name: "Abogado",
+      count: Object.entries(agentCounts)
+        .filter(([name]) => !name.toLowerCase().includes("jefe"))
+        .reduce((sum, [, c]) => sum + c, 0),
+      color: "blue",
     },
     {
-      key: "from_name",
-      label: "De",
-      render: (ticket: EmailTicket) => (
-        <div>
-          <p className="text-sm text-gray-900">{ticket.from_name}</p>
-          <p className="text-xs text-gray-500">{ticket.from_email}</p>
-        </div>
-      ),
-    },
-    {
-      key: "received_at",
-      label: "Recibido",
-      render: (ticket: EmailTicket) => (
-        <span className="text-sm text-gray-600">
-          {formatDateTime(ticket.received_at)}
-        </span>
-      ),
-    },
-    {
-      key: "status",
-      label: "Estado",
-      render: (ticket: EmailTicket) => (
-        <StatusBadge
-          status={ticket.status}
-          labels={EMAIL_TICKET_STATUS_LABELS}
-          colors={STATUS_COLORS}
-        />
-      ),
-    },
-    {
-      key: "sla_24h",
-      label: "SLA 24h",
-      render: (ticket: EmailTicket) => (
-        <SlaIndicator
-          deadline={ticket.sla_24h_deadline}
-          met={ticket.sla_24h_met}
-          label="24h"
-        />
-      ),
-    },
-    {
-      key: "sla_48h",
-      label: "SLA 48h",
-      render: (ticket: EmailTicket) => (
-        <SlaIndicator
-          deadline={ticket.sla_48h_deadline}
-          met={ticket.sla_48h_met}
-          label="48h"
-        />
-      ),
-    },
-    {
-      key: "assigned_to",
-      label: "Asignado",
-      render: (ticket: EmailTicket) => (
-        <span className="text-sm text-gray-700">
-          {ticket.assigned_to_name || (
-            <span className="text-orange-600 font-medium">Sin asignar</span>
-          )}
-        </span>
-      ),
+      name: "Abogado Jefe",
+      count: Object.entries(agentCounts)
+        .filter(([name]) => name.toLowerCase().includes("jefe"))
+        .reduce((sum, [, c]) => sum + c, 0),
+      color: "purple",
     },
   ];
 
+  /* ---- Render ---- */
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* ============================================================ */}
+      {/* HEADER                                                        */}
+      {/* ============================================================ */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Correspondencia</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Gestión de correos entrantes con seguimiento de SLA
+          </p>
+        </div>
+
+        {/* Stat pills */}
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700">
+            <Mail className="h-3.5 w-3.5 text-gray-400" />
+            Total: {totalCount}
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+            <Inbox className="h-3.5 w-3.5" />
+            Abiertos: {openCount}
+          </span>
+          {slaAtRiskCount > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+              SLA en riesgo: {slaAtRiskCount}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* AGENT STATUS BAR                                              */}
+      {/* ============================================================ */}
+      <AgentStatusBar agents={agentBarData} />
+
+      {/* ============================================================ */}
+      {/* PROCESS FLOW TOGGLE                                           */}
+      {/* ============================================================ */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Tickets de Email
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Gestión de correos entrantes con seguimiento de SLA
-        </p>
+        <button
+          onClick={() => setShowProcessFlow(!showProcessFlow)}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+        >
+          {showProcessFlow ? (
+            <EyeOff className="h-3.5 w-3.5" />
+          ) : (
+            <Eye className="h-3.5 w-3.5" />
+          )}
+          {showProcessFlow ? "Ocultar Flujo" : "Ver Flujo de Respuesta"}
+        </button>
+        {showProcessFlow && (
+          <div className="mt-3">
+            <ProcessFlow process={respuestaCorreosProcess} />
+          </div>
+        )}
       </div>
 
-      {/* Process Flow */}
-      <ProcessFlow process={respuestaCorreosProcess} />
-
-      {/* Stats */}
-      {stats && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Tickets Abiertos"
-            value={stats.open}
-            icon={Inbox}
-          />
-          <StatCard
-            title="Sin Asignar"
-            value={stats.unassigned}
-            icon={User}
-            variant="warning"
-          />
-          <StatCard
-            title="SLA en Riesgo"
-            value={stats.sla_at_risk}
-            icon={AlertTriangle}
-            variant="warning"
-          />
-          <StatCard
-            title="SLA Incumplido"
-            value={stats.sla_breached}
-            icon={XCircle}
-            variant="danger"
-          />
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar por asunto, remitente..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="appearance-none rounded-lg border border-gray-300 py-2 pl-10 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="all">Todos los estados</option>
-            {Object.entries(EMAIL_TICKET_STATUS_LABELS).map(
-              ([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              )
-            )}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
-        </div>
+      {/* ============================================================ */}
+      {/* SEARCH                                                        */}
+      {/* ============================================================ */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Buscar por asunto o remitente..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
       </div>
 
-      {/* Table */}
+      {/* ============================================================ */}
+      {/* CONTENT                                                       */}
+      {/* ============================================================ */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : filteredTickets.length === 0 ? (
+      ) : enriched.length === 0 ? (
         <EmptyState
           icon={Mail}
-          title="No hay tickets"
-          description="No se encontraron tickets de email con los filtros aplicados."
+          title="No hay correspondencia"
+          description="No se encontraron correos con los filtros aplicados."
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filteredTickets}
-          onRowClick={(ticket) =>
-            router.push(`/email-tickets/${ticket.id}`)
-          }
-          rowClassName={getRowClassName}
-        />
+        <div className="space-y-6">
+          {/* --- Urgente --- */}
+          {urgentItems.length > 0 && (
+            <UrgencySection
+              title="Urgente"
+              urgency="urgent"
+              count={urgentItems.length}
+              defaultOpen
+            >
+              {urgentItems.map(({ ticket, urgency, progress, actionLabel, slaText }) => (
+                <div key={ticket.id} className="p-2">
+                  <ItemCard
+                    title={ticket.subject}
+                    subtitle={
+                      ticket.from_name +
+                      (ticket.matter_title ? " \u00B7 " + ticket.matter_title : "")
+                    }
+                    statusLabel={EMAIL_TICKET_STATUS_LABELS[ticket.status] || ticket.status}
+                    statusKey={ticket.status}
+                    urgency={urgency}
+                    urgencyText={slaText}
+                    progress={progress}
+                    meta={[
+                      { icon: User, label: ticket.assigned_to_name || "Sin asignar" },
+                      { icon: Calendar, label: formatDate(ticket.created_at) },
+                    ]}
+                    actionLabel={actionLabel}
+                    actionHref={`/email-tickets/${ticket.id}`}
+                    href={`/email-tickets/${ticket.id}`}
+                  />
+                </div>
+              ))}
+            </UrgencySection>
+          )}
+
+          {/* --- En Proceso --- */}
+          {normalItems.length > 0 && (
+            <UrgencySection
+              title="En Proceso"
+              urgency="normal"
+              count={normalItems.length}
+              defaultOpen
+            >
+              {normalItems.map(({ ticket, urgency, progress, actionLabel, slaText }) => (
+                <div key={ticket.id} className="p-2">
+                  <ItemCard
+                    title={ticket.subject}
+                    subtitle={
+                      ticket.from_name +
+                      (ticket.matter_title ? " \u00B7 " + ticket.matter_title : "")
+                    }
+                    statusLabel={EMAIL_TICKET_STATUS_LABELS[ticket.status] || ticket.status}
+                    statusKey={ticket.status}
+                    urgency={urgency}
+                    urgencyText={slaText}
+                    progress={progress}
+                    meta={[
+                      { icon: User, label: ticket.assigned_to_name || "Sin asignar" },
+                      { icon: Calendar, label: formatDate(ticket.created_at) },
+                    ]}
+                    actionLabel={actionLabel}
+                    actionHref={`/email-tickets/${ticket.id}`}
+                    href={`/email-tickets/${ticket.id}`}
+                  />
+                </div>
+              ))}
+            </UrgencySection>
+          )}
+
+          {/* --- Resueltos --- */}
+          {closedItems.length > 0 && (
+            <UrgencySection
+              title="Resueltos"
+              urgency="normal"
+              count={closedItems.length}
+              defaultOpen={false}
+            >
+              {closedItems.map(({ ticket, urgency, progress, actionLabel, slaText }) => (
+                <div key={ticket.id} className="p-2">
+                  <ItemCard
+                    title={ticket.subject}
+                    subtitle={
+                      ticket.from_name +
+                      (ticket.matter_title ? " \u00B7 " + ticket.matter_title : "")
+                    }
+                    statusLabel={EMAIL_TICKET_STATUS_LABELS[ticket.status] || ticket.status}
+                    statusKey={ticket.status}
+                    urgency={urgency}
+                    urgencyText={slaText}
+                    progress={progress}
+                    meta={[
+                      { icon: User, label: ticket.assigned_to_name || "Sin asignar" },
+                      { icon: Calendar, label: formatDate(ticket.created_at) },
+                    ]}
+                    actionLabel={actionLabel}
+                    actionHref={`/email-tickets/${ticket.id}`}
+                    href={`/email-tickets/${ticket.id}`}
+                  />
+                </div>
+              ))}
+            </UrgencySection>
+          )}
+        </div>
       )}
     </div>
   );

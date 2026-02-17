@@ -172,3 +172,100 @@ export const SIDEBAR_ITEMS = [
   { label: "IA Asistente", href: "/ai", icon: "Bot" },
   { label: "Admin", href: "/admin", icon: "Settings" },
 ];
+
+/* ------------------------------------------------------------------ */
+/* SIDEBAR GROUPS (v2 – intuitive for lawyers)                         */
+/* ------------------------------------------------------------------ */
+
+export interface SidebarItem {
+  label: string;
+  href: string;
+  icon: string;
+  badge?: string;          // e.g. "3" for pending items
+  badgeColor?: string;     // tailwind color: "red" | "yellow" | "blue"
+}
+
+export interface SidebarGroup {
+  label: string;
+  items: SidebarItem[];
+  defaultOpen?: boolean;
+}
+
+export const SIDEBAR_GROUPS: SidebarGroup[] = [
+  {
+    label: "MI DIA",
+    defaultOpen: true,
+    items: [
+      { label: "Inicio", href: "/dashboard", icon: "LayoutDashboard" },
+    ],
+  },
+  {
+    label: "CLIENTES",
+    defaultOpen: true,
+    items: [
+      { label: "Recepción", href: "/leads", icon: "UserPlus" },
+      { label: "Clientes", href: "/clients", icon: "Users" },
+      { label: "Propuestas", href: "/proposals", icon: "FileText" },
+    ],
+  },
+  {
+    label: "CASOS",
+    defaultOpen: true,
+    items: [
+      { label: "Casos Activos", href: "/matters", icon: "Briefcase" },
+      { label: "Contratos", href: "/contracts", icon: "FileSignature" },
+      { label: "Trámites Notariales", href: "/notary", icon: "Stamp" },
+      { label: "Revisión del Día", href: "/case-review", icon: "ClipboardCheck" },
+    ],
+  },
+  {
+    label: "GESTIÓN",
+    defaultOpen: true,
+    items: [
+      { label: "Correspondencia", href: "/email-tickets", icon: "Mail" },
+      { label: "Cobranza", href: "/collections", icon: "DollarSign" },
+      { label: "Búsqueda Causas", href: "/scraper", icon: "Search" },
+    ],
+  },
+  {
+    label: "HERRAMIENTAS",
+    defaultOpen: false,
+    items: [
+      { label: "Tareas", href: "/tasks", icon: "CheckSquare" },
+      { label: "Documentos", href: "/documents", icon: "FolderOpen" },
+      { label: "Asistente IA", href: "/ai", icon: "Bot" },
+      { label: "Configuración", href: "/admin", icon: "Settings" },
+    ],
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* URGENCY STYLING                                                     */
+/* ------------------------------------------------------------------ */
+
+export const URGENCY_STYLES = {
+  urgent: {
+    border: "border-red-300",
+    bg: "bg-red-50",
+    text: "text-red-700",
+    badge: "bg-red-100 text-red-800",
+    dot: "bg-red-500",
+    label: "Urgente",
+  },
+  warning: {
+    border: "border-yellow-300",
+    bg: "bg-yellow-50",
+    text: "text-yellow-700",
+    badge: "bg-yellow-100 text-yellow-800",
+    dot: "bg-yellow-500",
+    label: "Atención",
+  },
+  normal: {
+    border: "border-gray-200",
+    bg: "bg-white",
+    text: "text-gray-700",
+    badge: "bg-gray-100 text-gray-800",
+    dot: "bg-gray-400",
+    label: "Normal",
+  },
+} as const;

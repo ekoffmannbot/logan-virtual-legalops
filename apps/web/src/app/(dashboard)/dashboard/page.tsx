@@ -2,67 +2,84 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { formatDate, formatCurrency } from "@/lib/utils";
-import { LEAD_STATUS_LABELS, MATTER_TYPE_LABELS, DEADLINE_SEVERITY_LABELS, STATUS_COLORS } from "@/lib/constants";
-import { StatCard } from "@/components/shared/stat-card";
-import { StatusBadge } from "@/components/shared/status-badge";
+import { useAuth } from "@/lib/auth";
+import { formatDate } from "@/lib/utils";
+import { getProcessProgress } from "@/lib/process-status-map";
+import { UrgencyCard } from "@/components/shared/urgency-card";
+import { CompactCard } from "@/components/shared/item-card";
+import { AgentMessageList } from "@/components/shared/agent-message";
+import { ProcessStepIndicator } from "@/components/shared/process-step-indicator";
+import { ActionItemsSection } from "@/components/shared/urgency-section";
 import {
+  AlertTriangle,
+  CalendarClock,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  TrendingUp,
   UserPlus,
   FileText,
   Briefcase,
-  AlertCircle,
-  Clock,
-  CalendarClock,
-  Loader2,
+  DollarSign,
   Zap,
-  Bot,
-  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
 
-interface DashboardOverview {
-  kpis: {
-    new_leads: number;
-    active_proposals: number;
-    open_matters: number;
-    overdue_invoices: number;
+interface ActionItems {
+  urgent: Array<{
+    id: string;
+    type: string;
+    title: string;
+    subtitle?: string;
+    urgencyText?: string;
+    actionLabel: string;
+    actionHref?: string;
+    secondaryLabel?: string;
+    secondaryHref?: string;
+    amount?: string;
+  }>;
+  today: Array<{
+    id: string;
+    type: string;
+    title: string;
+    subtitle?: string;
+    actionLabel: string;
+    actionHref?: string;
+  }>;
+  inProgress: Array<{
+    id: string;
+    type: string;
+    title: string;
+    subtitle?: string;
+    processId: string;
+    status: string;
+    href?: string;
+  }>;
+  completed: Array<{
+    id: string;
+    title: string;
+    subtitle?: string;
+    type: string;
+  }>;
+  agentInsights: Array<{
+    agentName: string;
+    message: string;
+    type: "suggestion" | "warning" | "info" | "insight";
+  }>;
+  quickNumbers: {
+    leads: number;
+    proposals: number;
+    matters: number;
+    overdue: number;
   };
-  leads_by_status: Array<{ status: string; count: number }>;
-  matters_by_type: Array<{ type: string; count: number }>;
-  overdue_tasks: Array<{
-    id: number;
-    title: string;
-    due_date: string;
-    assigned_to_name: string;
-    matter_title?: string;
-  }>;
-  critical_deadlines: Array<{
-    id: number;
-    title: string;
-    due_date: string;
-    severity: string;
-    matter_title?: string;
-  }>;
 }
 
-const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
-
 export default function DashboardPage() {
-  const { data, isLoading, error } = useQuery<DashboardOverview>({
-    queryKey: ["dashboard-overview"],
-    queryFn: () => api.get("/dashboards/overview"),
+  const { user } = useAuth();
+
+  const { data, isLoading, error } = useQuery<ActionItems>({
+    queryKey: ["dashboard-action-items"],
+    queryFn: () => api.get("/dashboards/action-items"),
   });
 
   if (isLoading) {
@@ -73,7 +90,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (error) {
+  if (error || !data) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <AlertCircle className="h-10 w-10 text-destructive mb-3" />
@@ -85,234 +102,249 @@ export default function DashboardPage() {
     );
   }
 
-  if (!data) return null;
-
-  const leadsChartData = data.leads_by_status.map((item) => ({
-    name: LEAD_STATUS_LABELS[item.status] || item.status,
-    cantidad: item.count,
-  }));
-
-  const mattersChartData = data.matters_by_type.map((item) => ({
-    name: MATTER_TYPE_LABELS[item.type] || item.type,
-    value: item.count,
-  }));
+  const totalActions = data.urgent.length + data.today.length;
+  const todayStr = formatDate(new Date().toISOString());
+  const firstName = user?.full_name?.split(" ")[0] || "Usuario";
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Resumen general del estudio</p>
+      {/* Greeting */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Buenos dias, {firstName}
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {totalActions > 0 ? (
+              <>Tienes <span className="font-semibold text-gray-700">{totalActions} cosas</span> que requieren tu atención</>
+            ) : (
+              "Todo al día. No hay tareas pendientes."
+            )}
+          </p>
+        </div>
+        <span className="text-sm text-gray-400">{todayStr}</span>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Leads nuevos"
-          value={data.kpis.new_leads}
-          icon={UserPlus}
-          description="Este mes"
-        />
-        <StatCard
-          title="Propuestas activas"
-          value={data.kpis.active_proposals}
-          icon={FileText}
-          description="Enviadas y pendientes"
-        />
-        <StatCard
-          title="Casos abiertos"
-          value={data.kpis.open_matters}
-          icon={Briefcase}
-          description="En curso"
-        />
-        <StatCard
-          title="Facturas vencidas"
-          value={data.kpis.overdue_invoices}
-          icon={AlertCircle}
-          description="Requieren atencion"
-          className={data.kpis.overdue_invoices > 0 ? "border-red-200 bg-red-50/50" : ""}
-        />
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Bar Chart - Leads by Status */}
-        <div className="rounded-xl border bg-white p-6">
-          <h3 className="text-base font-semibold mb-4">Leads por estado</h3>
-          {leadsChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={leadsChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="cantidad" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-sm text-muted-foreground py-8 text-center">
-              Sin datos de leads disponibles
-            </p>
-          )}
-        </div>
-
-        {/* Pie Chart - Matters by Type */}
-        <div className="rounded-xl border bg-white p-6">
-          <h3 className="text-base font-semibold mb-4">Casos por tipo</h3>
-          {mattersChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={mattersChartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  dataKey="value"
-                  label={({ name, value }) => `${name}: ${value}`}
-                >
-                  {mattersChartData.map((_, index) => (
-                    <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-sm text-muted-foreground py-8 text-center">
-              Sin datos de casos disponibles
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Process Map */}
-      <div className="rounded-xl border bg-white p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Zap className="h-5 w-5 text-primary" />
-          <h3 className="text-base font-semibold">Procesos del Estudio</h3>
-          <span className="text-xs text-muted-foreground ml-2">
-            Haz clic en un proceso para ver su flujo completo con agentes
-          </span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-          {[
-            { name: "Recepción Visita", href: "/leads", agents: ["Secretaria", "Abogado"], color: "blue" },
-            { name: "Recepción Teléfono", href: "/leads", agents: ["Secretaria"], color: "cyan" },
-            { name: "Seguimiento Propuestas", href: "/proposals", agents: ["Abogado Jefe", "Abogado", "Administración"], color: "green" },
-            { name: "Contrato y Mandato", href: "/contracts", agents: ["Abogado", "Administración", "Notaría"], color: "amber" },
-            { name: "Docs Notariales", href: "/notary", agents: ["Gerente Legal", "Abogado", "Notaría", "Cliente"], color: "purple" },
-            { name: "Correos Abogados", href: "/email-tickets", agents: ["Abogado", "Abogado Jefe"], color: "rose" },
-            { name: "Cobranza", href: "/collections", agents: ["Secretaria", "Jefe Cobranza"], color: "red" },
-            { name: "Causas JPL", href: "/matters", agents: ["Agente Comercial", "Administración", "Abogado JPL"], color: "teal" },
-            { name: "Revisión Causas", href: "/case-review", agents: ["Abogado", "Procurador"], color: "indigo" },
-            { name: "LegalBOT Scraper", href: "/scraper", agents: ["Agente Comercial", "Bot Scraper"], color: "slate" },
-          ].map((process) => (
-            <Link
-              key={process.name}
-              href={process.href}
-              className="group flex flex-col gap-2 rounded-lg border border-gray-200 p-3 hover:border-primary/50 hover:shadow-md transition-all"
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Column: Action Items */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* URGENT */}
+          {data.urgent.length > 0 && (
+            <ActionItemsSection
+              title="Urgente"
+              urgency="urgent"
+              count={data.urgent.length}
+              icon={<AlertTriangle className="h-4 w-4 text-red-600" />}
             >
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                  <Bot className="h-3.5 w-3.5 text-primary" />
-                </div>
-                <span className="text-xs font-semibold text-gray-900 leading-tight">{process.name}</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {process.agents.map((agent) => (
-                  <span key={agent} className="inline-flex items-center rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-600">
-                    {agent}
-                  </span>
+              <div className="space-y-3">
+                {data.urgent.map((item) => (
+                  <UrgencyCard
+                    key={item.id}
+                    title={item.title}
+                    subtitle={item.subtitle}
+                    urgency="urgent"
+                    urgencyText={item.urgencyText}
+                    icon={AlertTriangle}
+                    actionLabel={item.actionLabel}
+                    actionHref={item.actionHref}
+                    secondaryLabel={item.secondaryLabel}
+                    secondaryHref={item.secondaryHref}
+                    amount={item.amount}
+                  />
                 ))}
               </div>
-              <div className="flex items-center gap-1 text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                Ver flujo <ArrowRight className="h-3 w-3" />
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
+            </ActionItemsSection>
+          )}
 
-      {/* Bottom Lists Row */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Overdue Tasks */}
-        <div className="rounded-xl border bg-white p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Clock className="h-5 w-5 text-orange-500" />
-            <h3 className="text-base font-semibold">Tareas vencidas</h3>
-          </div>
-          {data.overdue_tasks.length > 0 ? (
-            <div className="space-y-3">
-              {data.overdue_tasks.slice(0, 5).map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-start justify-between rounded-lg border p-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{task.title}</p>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{task.assigned_to_name}</span>
-                      {task.matter_title && (
-                        <>
-                          <span>·</span>
-                          <span className="truncate">{task.matter_title}</span>
-                        </>
+          {/* TODAY */}
+          {data.today.length > 0 && (
+            <ActionItemsSection
+              title="Por hacer hoy"
+              urgency="warning"
+              count={data.today.length}
+              icon={<CalendarClock className="h-4 w-4 text-yellow-600" />}
+            >
+              <div className="space-y-2">
+                {data.today.map((item) => (
+                  <CompactCard
+                    key={item.id}
+                    title={item.title}
+                    subtitle={item.subtitle}
+                    urgency="warning"
+                    actionLabel={item.actionLabel}
+                    actionHref={item.actionHref}
+                  />
+                ))}
+              </div>
+            </ActionItemsSection>
+          )}
+
+          {/* IN PROGRESS */}
+          {data.inProgress.length > 0 && (
+            <ActionItemsSection
+              title="En progreso"
+              urgency="normal"
+              count={data.inProgress.length}
+              icon={<TrendingUp className="h-4 w-4 text-blue-600" />}
+            >
+              <div className="space-y-2">
+                {data.inProgress.map((item) => {
+                  const progress = getProcessProgress(item.processId, item.status);
+                  return (
+                    <Link
+                      key={item.id}
+                      href={item.href || "#"}
+                      className="block rounded-lg border border-gray-200 bg-white p-3 hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-gray-900 truncate">
+                            {item.title}
+                          </h4>
+                          {item.subtitle && (
+                            <p className="text-xs text-gray-500 mt-0.5">{item.subtitle}</p>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 rounded-full px-2 py-0.5 flex-shrink-0">
+                          {progress.percentage}%
+                        </span>
+                      </div>
+                      <div className="mt-2">
+                        <ProcessStepIndicator
+                          current={progress.current}
+                          total={progress.total}
+                          percentage={progress.percentage}
+                          stepLabel={progress.stepLabel}
+                          agentName={progress.agentName}
+                          agentColor={progress.agentColor}
+                          size="sm"
+                        />
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </ActionItemsSection>
+          )}
+
+          {/* COMPLETED */}
+          {data.completed.length > 0 && (
+            <ActionItemsSection
+              title="Completado hoy"
+              urgency="normal"
+              count={data.completed.length}
+              icon={<CheckCircle2 className="h-4 w-4 text-green-600" />}
+              defaultOpen={false}
+            >
+              <div className="space-y-1">
+                {data.completed.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 rounded-lg bg-green-50/50 border border-green-100 px-3 py-2"
+                  >
+                    <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-700 truncate">{item.title}</p>
+                      {item.subtitle && (
+                        <p className="text-[10px] text-gray-400">{item.subtitle}</p>
                       )}
                     </div>
                   </div>
-                  <span className="ml-2 text-xs text-red-600 whitespace-nowrap">
-                    {formatDate(task.due_date)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              No hay tareas vencidas
-            </p>
+                ))}
+              </div>
+            </ActionItemsSection>
           )}
         </div>
 
-        {/* Critical Deadlines */}
-        <div className="rounded-xl border bg-white p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <CalendarClock className="h-5 w-5 text-red-500" />
-            <h3 className="text-base font-semibold">Plazos criticos</h3>
-          </div>
-          {data.critical_deadlines.length > 0 ? (
-            <div className="space-y-3">
-              {data.critical_deadlines.slice(0, 5).map((deadline) => (
-                <div
-                  key={deadline.id}
-                  className="flex items-start justify-between rounded-lg border p-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{deadline.title}</p>
-                    {deadline.matter_title && (
-                      <p className="mt-1 text-xs text-muted-foreground truncate">
-                        {deadline.matter_title}
-                      </p>
-                    )}
-                  </div>
-                  <div className="ml-2 flex flex-col items-end gap-1">
-                    <StatusBadge
-                      status={deadline.severity}
-                      label={DEADLINE_SEVERITY_LABELS[deadline.severity] || deadline.severity}
-                    />
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {formatDate(deadline.due_date)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+        {/* Right Column: Agent Insights + Quick Numbers */}
+        <div className="space-y-6">
+          {/* Agent Insights */}
+          {data.agentInsights.length > 0 && (
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <AgentMessageList messages={data.agentInsights} maxVisible={5} />
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              No hay plazos criticos
-            </p>
           )}
+
+          {/* Quick Numbers */}
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Zap className="h-4 w-4 text-primary" />
+              <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Números rápidos</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <QuickNumberCard
+                label="Leads"
+                value={data.quickNumbers.leads}
+                icon={UserPlus}
+                href="/leads"
+                color="blue"
+              />
+              <QuickNumberCard
+                label="Propuestas"
+                value={data.quickNumbers.proposals}
+                icon={FileText}
+                href="/proposals"
+                color="green"
+              />
+              <QuickNumberCard
+                label="Casos"
+                value={data.quickNumbers.matters}
+                icon={Briefcase}
+                href="/matters"
+                color="purple"
+              />
+              <QuickNumberCard
+                label="Vencidos"
+                value={data.quickNumbers.overdue}
+                icon={DollarSign}
+                href="/collections"
+                color="red"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* QUICK NUMBER CARD                                                   */
+/* ------------------------------------------------------------------ */
+
+function QuickNumberCard({
+  label,
+  value,
+  icon: Icon,
+  href,
+  color,
+}: {
+  label: string;
+  value: number;
+  icon: any;
+  href: string;
+  color: string;
+}) {
+  const colorMap: Record<string, { bg: string; text: string; iconBg: string }> = {
+    blue:   { bg: "hover:bg-blue-50", text: "text-blue-700", iconBg: "bg-blue-100" },
+    green:  { bg: "hover:bg-green-50", text: "text-green-700", iconBg: "bg-green-100" },
+    purple: { bg: "hover:bg-purple-50", text: "text-purple-700", iconBg: "bg-purple-100" },
+    red:    { bg: "hover:bg-red-50", text: "text-red-700", iconBg: "bg-red-100" },
+  };
+  const c = colorMap[color] || colorMap.blue;
+
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-3 rounded-lg border border-gray-100 p-3 transition-colors ${c.bg}`}
+    >
+      <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${c.iconBg}`}>
+        <Icon className={`h-4 w-4 ${c.text}`} />
+      </div>
+      <div>
+        <p className={`text-lg font-bold ${c.text}`}>{value}</p>
+        <p className="text-[10px] text-gray-500">{label}</p>
+      </div>
+    </Link>
   );
 }

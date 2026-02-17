@@ -1,234 +1,336 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  FileText,
-  Plus,
-  Search,
-  Filter,
-  ChevronDown,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-} from "lucide-react";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
-import { cn, formatDate } from "@/lib/utils";
-import { CONTRACT_STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
-import { DataTable } from "@/components/shared/data-table";
-import { StatusBadge } from "@/components/shared/status-badge";
-import { StatCard } from "@/components/shared/stat-card";
+import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { CONTRACT_STATUS_LABELS } from "@/lib/constants";
+import { AgentStatusBar } from "@/components/shared/agent-message";
+import { ItemCard } from "@/components/shared/item-card";
+import { UrgencySection } from "@/components/shared/urgency-section";
+import {
+  getProcessProgress,
+  computeUrgency,
+  getNextActionLabel,
+} from "@/lib/process-status-map";
+import type { UrgencyLevel } from "@/lib/process-status-map";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ProcessFlow } from "@/components/shared/process-flow";
 import { contratoMandatoProcess } from "@/lib/process-definitions";
+import {
+  FileSignature,
+  Search,
+  Loader2,
+  Eye,
+  EyeOff,
+  X,
+  Calendar,
+  DollarSign,
+} from "lucide-react";
+
+/* ------------------------------------------------------------------ */
+/* TYPES                                                               */
+/* ------------------------------------------------------------------ */
 
 interface Contract {
-  id: string;
+  id: number;
+  title: string;
   client_name: string;
+  type: string;
   status: string;
-  drafted_by: string;
-  reviewed_by: string | null;
-  signed: boolean;
-  signed_at: string | null;
+  start_date: string;
+  end_date: string | null;
+  monthly_fee: number | null;
+  currency: string;
   created_at: string;
-  matter_id: string;
-  matter_title: string;
+  process_id: string;
 }
 
+/* ------------------------------------------------------------------ */
+/* PROCESS-STEP GROUPING                                               */
+/* ------------------------------------------------------------------ */
+
+interface ProcessGroup {
+  key: string;
+  title: string;
+  urgency: UrgencyLevel;
+  statuses: string[];
+}
+
+const PROCESS_GROUPS: ProcessGroup[] = [
+  {
+    key: "datos-pendientes",
+    title: "Datos Pendientes",
+    urgency: "urgent",
+    statuses: ["pending_data"],
+  },
+  {
+    key: "en-redaccion",
+    title: "En Redaccion",
+    urgency: "warning",
+    statuses: ["drafting", "changes_requested"],
+  },
+  {
+    key: "revision",
+    title: "Revision",
+    urgency: "warning",
+    statuses: ["pending_review"],
+  },
+  {
+    key: "aprobado-notaria",
+    title: "Aprobado / En Notaria",
+    urgency: "normal",
+    statuses: ["approved", "uploaded_for_signing"],
+  },
+  {
+    key: "firmado-completo",
+    title: "Firmado / Completo",
+    urgency: "normal",
+    statuses: ["signed", "scanned_uploaded", "complete"],
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* PAGE                                                                */
+/* ------------------------------------------------------------------ */
+
 export default function ContractsPage() {
-  const router = useRouter();
-  const { user } = useAuth();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  // UI state
+  const [showFlow, setShowFlow] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: contracts = [], isLoading } = useQuery({
-    queryKey: ["contracts", statusFilter],
-    queryFn: () =>
-      api.get<Contract[]>(statusFilter !== "all" ? `/contracts?status=${statusFilter}` : "/contracts"),
+  // Data fetching
+  const { data: contracts = [], isLoading } = useQuery<Contract[]>({
+    queryKey: ["contracts"],
+    queryFn: () => api.get("/contracts"),
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ["contracts", "stats"],
-    queryFn: () =>
-      api.get<{
-        total: number;
-        draft: number;
-        in_review: number;
-        signed: number;
-        pending_signature: number;
-      }>("/contracts/stats"),
-  });
+  // Search filter
+  const filteredContracts = useMemo(() => {
+    if (!searchQuery.trim()) return contracts;
+    const q = searchQuery.toLowerCase();
+    return contracts.filter(
+      (c) =>
+        c.title.toLowerCase().includes(q) ||
+        c.client_name.toLowerCase().includes(q) ||
+        c.type.toLowerCase().includes(q)
+    );
+  }, [contracts, searchQuery]);
 
-  const filteredContracts = contracts.filter((contract) =>
-    contract.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contract.matter_title?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Group contracts by process step
+  const groupedContracts = useMemo(() => {
+    return PROCESS_GROUPS.map((group) => ({
+      ...group,
+      items: filteredContracts.filter((c) =>
+        group.statuses.includes(c.status)
+      ),
+    }));
+  }, [filteredContracts]);
 
-  const columns = [
-    {
-      key: "client_name",
-      label: "Cliente",
-      render: (contract: Contract) => (
-        <div>
-          <p className="font-medium text-gray-900">{contract.client_name}</p>
-          <p className="text-sm text-gray-500">{contract.matter_title}</p>
-        </div>
-      ),
-    },
-    {
-      key: "status",
-      label: "Estado",
-      render: (contract: Contract) => (
-        <StatusBadge
-          status={contract.status}
-          labels={CONTRACT_STATUS_LABELS}
-          colors={STATUS_COLORS}
-        />
-      ),
-    },
-    {
-      key: "drafted_by",
-      label: "Redactado por",
-      render: (contract: Contract) => (
-        <span className="text-sm text-gray-700">{contract.drafted_by}</span>
-      ),
-    },
-    {
-      key: "reviewed_by",
-      label: "Revisado por",
-      render: (contract: Contract) => (
-        <span className="text-sm text-gray-700">
-          {contract.reviewed_by || "—"}
-        </span>
-      ),
-    },
-    {
-      key: "signed",
-      label: "Firmado",
-      render: (contract: Contract) =>
-        contract.signed ? (
-          <span className="inline-flex items-center gap-1 text-green-700">
-            <CheckCircle2 className="h-4 w-4" />
-            Sí
-          </span>
-        ) : (
-          <span className="text-gray-400">No</span>
-        ),
-    },
-    {
-      key: "created_at",
-      label: "Fecha",
-      render: (contract: Contract) => (
-        <span className="text-sm text-gray-600">
-          {formatDate(contract.created_at)}
-        </span>
-      ),
-    },
-  ];
+  // Agent status counts
+  const agentCounts = useMemo(() => {
+    const abogadoStatuses = new Set([
+      "pending_review",
+      "changes_requested",
+    ]);
+    const adminStatuses = new Set([
+      "pending_data",
+      "drafting",
+      "approved",
+      "signed",
+      "scanned_uploaded",
+    ]);
+    const notariaStatuses = new Set(["uploaded_for_signing"]);
+
+    let abogado = 0;
+    let admin = 0;
+    let notaria = 0;
+
+    for (const c of contracts) {
+      if (abogadoStatuses.has(c.status)) abogado++;
+      if (adminStatuses.has(c.status)) admin++;
+      if (notariaStatuses.has(c.status)) notaria++;
+    }
+
+    return [
+      { name: "Abogado", count: abogado, color: "green" },
+      { name: "Administracion", count: admin, color: "amber" },
+      { name: "Notaria", count: notaria, color: "purple" },
+    ];
+  }, [contracts]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* ---- HEADER ---- */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Contratos</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Gestión de contratos y documentos legales
+          <h1 className="text-2xl font-bold">Contratos</h1>
+          <p className="text-muted-foreground">
+            Gestion de contratos y mandatos judiciales
           </p>
         </div>
         <button
-          onClick={() => router.push("/contracts/new")}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors"
+          onClick={() => setShowFlow((prev) => !prev)}
+          className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-muted transition-colors"
         >
-          <Plus className="h-4 w-4" />
-          Nuevo Contrato
+          {showFlow ? (
+            <EyeOff className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+          Ver Flujo
         </button>
       </div>
 
-      {/* Process Flow */}
-      <ProcessFlow process={contratoMandatoProcess} />
+      {/* ---- AGENT STATUS BAR ---- */}
+      <AgentStatusBar agents={agentCounts} />
 
-      {/* Stats */}
-      {stats && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Total Contratos"
-            value={stats.total}
-            icon={FileText}
-          />
-          <StatCard
-            title="En Borrador"
-            value={stats.draft}
-            icon={Clock}
-            variant="warning"
-          />
-          <StatCard
-            title="En Revisión"
-            value={stats.in_review}
-            icon={AlertCircle}
-            variant="info"
-          />
-          <StatCard
-            title="Firmados"
-            value={stats.signed}
-            icon={CheckCircle2}
-            variant="success"
-          />
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar contratos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="appearance-none rounded-lg border border-gray-300 py-2 pl-10 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="all">Todos los estados</option>
-            {Object.entries(CONTRACT_STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
-        </div>
+      {/* ---- SEARCH INPUT ---- */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full rounded-lg border pl-10 pr-4 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+          placeholder="Buscar por titulo, cliente o tipo..."
+        />
       </div>
 
-      {/* Table */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      {/* ---- PROCESS FLOW DIALOG ---- */}
+      {showFlow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="fixed inset-0 bg-black/50"
+            onClick={() => setShowFlow(false)}
+          />
+          <div className="relative z-50 w-full max-w-5xl max-h-[85vh] overflow-y-auto rounded-xl border bg-white p-6 shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">
+                Flujo de Contrato y Mandato
+              </h2>
+              <button
+                onClick={() => setShowFlow(false)}
+                className="rounded-lg p-1 hover:bg-muted"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <ProcessFlow process={contratoMandatoProcess} />
+          </div>
         </div>
-      ) : filteredContracts.length === 0 ? (
+      )}
+
+      {/* ---- CONTENT ---- */}
+      {filteredContracts.length === 0 ? (
         <EmptyState
-          icon={FileText}
+          icon={FileSignature}
           title="No hay contratos"
-          description="Crea tu primer contrato para comenzar."
-          actionLabel="Nuevo Contrato"
-          onAction={() => router.push("/contracts/new")}
+          description={
+            searchQuery
+              ? "No se encontraron resultados para tu busqueda."
+              : "Aun no se han registrado contratos en el sistema."
+          }
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filteredContracts}
-          onRowClick={(contract) => router.push(`/contracts/${contract.id}`)}
-        />
+        <div className="space-y-4">
+          {groupedContracts.map((group) => {
+            if (group.items.length === 0) return null;
+
+            return (
+              <UrgencySection
+                key={group.key}
+                title={group.title}
+                urgency={group.urgency}
+                count={group.items.length}
+                defaultOpen={group.urgency !== "normal" || group.items.length > 0}
+              >
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+                  {group.items.map((contract) => (
+                    <ContractCard key={contract.id} contract={contract} />
+                  ))}
+                </div>
+              </UrgencySection>
+            );
+          })}
+        </div>
       )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* CONTRACT CARD                                                       */
+/* ------------------------------------------------------------------ */
+
+function ContractCard({ contract }: { contract: Contract }) {
+  const urgency = computeUrgency(contract);
+  const progress = getProcessProgress(
+    contract.process_id || "contrato-mandato",
+    contract.status
+  );
+  const actionLabel = getNextActionLabel(
+    contract.process_id || "contrato-mandato",
+    contract.status
+  );
+
+  const statusLabel =
+    CONTRACT_STATUS_LABELS[contract.status] || contract.status;
+
+  const subtitle = [contract.type, contract.client_name]
+    .filter(Boolean)
+    .join(" \u00B7 ");
+
+  const meta: Array<{ icon?: typeof Calendar; label: string }> = [];
+  if (contract.start_date) {
+    meta.push({ icon: Calendar, label: formatDate(contract.start_date) });
+  }
+  if (contract.monthly_fee != null) {
+    meta.push({
+      icon: DollarSign,
+      label: formatCurrency(contract.monthly_fee, contract.currency),
+    });
+  }
+
+  return (
+    <ItemCard
+      title={contract.title}
+      subtitle={subtitle}
+      statusLabel={statusLabel}
+      statusKey={contract.status}
+      urgency={urgency}
+      progress={{
+        current: progress.current,
+        total: progress.total,
+        percentage: progress.percentage,
+        stepLabel: progress.stepLabel,
+        agentName: progress.agentName,
+        agentColor: progress.agentColor,
+      }}
+      actionLabel={actionLabel}
+      actionHref={`/contracts/${contract.id}`}
+      meta={meta}
+    >
+      {/* Monthly fee highlight */}
+      {contract.monthly_fee != null && (
+        <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
+          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">
+            Honorario mensual
+          </span>
+          <span className="text-sm font-bold text-gray-900">
+            {formatCurrency(contract.monthly_fee, contract.currency)}
+          </span>
+        </div>
+      )}
+    </ItemCard>
   );
 }

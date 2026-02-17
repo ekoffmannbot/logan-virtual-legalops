@@ -1,129 +1,110 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Briefcase,
+  Loader2,
+  Search,
+  Calendar,
+  User,
+  Building,
+  Hash,
+  Clock,
+} from "lucide-react";
 import { api } from "@/lib/api";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { MATTER_STATUS_LABELS, MATTER_TYPE_LABELS } from "@/lib/constants";
-import { DataTable, Column } from "@/components/shared/data-table";
-import { StatusBadge } from "@/components/shared/status-badge";
+import { ItemCard } from "@/components/shared/item-card";
+import { AgentStatusBar } from "@/components/shared/agent-message";
+import { UrgencySection } from "@/components/shared/urgency-section";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Briefcase, Plus, Loader2, X, AlertCircle, Filter } from "lucide-react";
-import { ProcessFlow } from "@/components/shared/process-flow";
-import { causasJPLProcess } from "@/lib/process-definitions";
+import {
+  getProcessProgress,
+  computeUrgency,
+  getNextActionLabel,
+  getTimeUntil,
+  getRelativeTime,
+} from "@/lib/process-status-map";
 
 interface Matter {
   id: number;
   title: string;
-  client_name: string;
-  client_id: number;
-  matter_type: string;
+  type: string;
   status: string;
-  assigned_lawyer_name?: string;
+  client_name: string;
+  assigned_to_name: string;
+  court: string | null;
+  rol: string | null;
   created_at: string;
+  next_hearing_date: string | null;
+  last_movement_at: string | null;
+  process_id: string;
 }
 
-interface CreateMatterPayload {
-  title: string;
-  client_id: number;
-  matter_type: string;
-  description?: string;
+function getDaysUntilHearing(hearingDate: string | null): number | null {
+  if (!hearingDate) return null;
+  const hearing = new Date(hearingDate);
+  const now = new Date();
+  return Math.ceil((hearing.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function getHearingUrgency(daysUntil: number | null): "urgent" | "warning" | "normal" {
+  if (daysUntil === null) return "normal";
+  if (daysUntil < 3) return "urgent";
+  if (daysUntil < 7) return "warning";
+  return "normal";
 }
 
 export default function MattersPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const [showCreate, setShowCreate] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [typeFilter, setTypeFilter] = useState<string>("");
-  const [formData, setFormData] = useState<CreateMatterPayload>({
-    title: "",
-    client_id: 0,
-    matter_type: "civil",
-    description: "",
-  });
-  const [formError, setFormError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const { data, isLoading, error } = useQuery<{ items: Matter[]; total: number }>({
+  const { data, isLoading } = useQuery<{ items: Matter[]; total: number }>({
     queryKey: ["matters"],
     queryFn: () => api.get("/matters"),
   });
   const matters = data?.items ?? [];
 
-  const createMutation = useMutation({
-    mutationFn: (payload: CreateMatterPayload) => api.post("/matters", payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["matters"] });
-      setShowCreate(false);
-      setFormData({ title: "", client_id: 0, matter_type: "civil", description: "" });
-      setFormError("");
-    },
-    onError: (err: any) => {
-      setFormError(err.message || "Error al crear el caso");
-    },
+  // Filter by search
+  const filtered = useMemo(() => {
+    if (!searchTerm.trim()) return matters;
+    const term = searchTerm.toLowerCase();
+    return matters.filter(
+      (m) =>
+        m.title.toLowerCase().includes(term) ||
+        m.client_name.toLowerCase().includes(term) ||
+        (m.rol && m.rol.toLowerCase().includes(term))
+    );
+  }, [matters, searchTerm]);
+
+  // Group matters
+  const audienciaProonto = filtered.filter((m) => {
+    const days = getDaysUntilHearing(m.next_hearing_date);
+    return days !== null && days < 7 && m.status !== "closed";
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title.trim()) {
-      setFormError("El titulo es obligatorio");
-      return;
-    }
-    if (!formData.client_id) {
-      setFormError("El cliente es obligatorio");
-      return;
-    }
-    setFormError("");
-    createMutation.mutate(formData);
-  };
-
-  const filteredMatters = matters.filter((m) => {
-    if (statusFilter && m.status !== statusFilter) return false;
-    if (typeFilter && m.matter_type !== typeFilter) return false;
-    return true;
+  const activos = filtered.filter((m) => {
+    const days = getDaysUntilHearing(m.next_hearing_date);
+    const isInAudiencia = days !== null && days < 7;
+    return m.status === "open" && !isInAudiencia;
   });
 
-  const columns: Column<Matter>[] = [
-    {
-      key: "title",
-      label: "Titulo",
-      sortable: true,
-      render: (matter) => <span className="font-medium">{matter.title}</span>,
+  const cerrados = filtered.filter(
+    (m) => m.status === "closed" || m.status === "terminated"
+  );
+
+  // Agent counts based on matter types
+  const agentCounts = filtered.reduce(
+    (acc, m) => {
+      if (m.type === "jpl") acc.jpl++;
+      else if (m.type === "civil") acc.civil++;
+      else acc.otro++;
+      return acc;
     },
-    {
-      key: "client_name",
-      label: "Cliente",
-      sortable: true,
-      render: (matter) => matter.client_name,
-    },
-    {
-      key: "matter_type",
-      label: "Tipo",
-      render: (matter) => MATTER_TYPE_LABELS[matter.matter_type] || matter.matter_type,
-    },
-    {
-      key: "status",
-      label: "Estado",
-      render: (matter) => (
-        <StatusBadge
-          status={matter.status}
-          label={MATTER_STATUS_LABELS[matter.status] || matter.status}
-        />
-      ),
-    },
-    {
-      key: "assigned_lawyer_name",
-      label: "Abogado",
-      render: (matter) => matter.assigned_lawyer_name || "-",
-    },
-    {
-      key: "created_at",
-      label: "Fecha",
-      sortable: true,
-      render: (matter) => formatDate(matter.created_at),
-    },
-  ];
+    { jpl: 0, civil: 0, otro: 0 }
+  );
 
   if (isLoading) {
     return (
@@ -133,192 +114,210 @@ export default function MattersPage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <AlertCircle className="h-10 w-10 text-destructive mb-3" />
-        <p className="text-lg font-medium">Error al cargar los casos</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          No se pudo obtener la informacion. Intente nuevamente.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Casos</h1>
-          <p className="text-muted-foreground">Gestion de causas y materias legales</p>
-        </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo Caso
-        </button>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Casos Activos</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Gestion de causas y materias legales
+        </p>
       </div>
 
-      {/* Process Flow */}
-      <ProcessFlow process={causasJPLProcess} />
-
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <Filter className="h-4 w-4 text-muted-foreground" />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-        >
-          <option value="">Todos los estados</option>
-          {Object.entries(MATTER_STATUS_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="rounded-lg border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-        >
-          <option value="">Todos los tipos</option>
-          {Object.entries(MATTER_TYPE_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        {(statusFilter || typeFilter) && (
-          <button
-            onClick={() => { setStatusFilter(""); setTypeFilter(""); }}
-            className="text-sm text-primary hover:underline"
-          >
-            Limpiar filtros
-          </button>
-        )}
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Buscar por titulo, cliente o ROL..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
       </div>
 
-      {/* Create Dialog */}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setShowCreate(false)} />
-          <div className="relative z-50 w-full max-w-lg rounded-xl border bg-white p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Nuevo Caso</h2>
-              <button onClick={() => setShowCreate(false)} className="rounded-lg p-1 hover:bg-muted">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Titulo del caso *</label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                  placeholder="Titulo descriptivo del caso"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">ID del Cliente *</label>
-                <input
-                  type="number"
-                  value={formData.client_id || ""}
-                  onChange={(e) => setFormData({ ...formData, client_id: parseInt(e.target.value) || 0 })}
-                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                  placeholder="ID del cliente"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Tipo de caso</label>
-                <select
-                  value={formData.matter_type}
-                  onChange={(e) => setFormData({ ...formData, matter_type: e.target.value })}
-                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                >
-                  {Object.entries(MATTER_TYPE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Descripcion</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                  rows={3}
-                  placeholder="Descripcion del caso..."
-                />
-              </div>
-              {formError && (
-                <p className="text-sm text-destructive">{formError}</p>
-              )}
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCreate(false)}
-                  className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Crear Caso
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Agent Status Bar */}
+      <AgentStatusBar
+        agents={[
+          { name: "Causas JPL", count: agentCounts.jpl, color: "teal" },
+          { name: "Causas Civiles", count: agentCounts.civil, color: "green" },
+          { name: "Otros", count: agentCounts.otro, color: "slate" },
+        ]}
+      />
 
-      {filteredMatters.length === 0 && matters.length === 0 ? (
+      {/* Content */}
+      {filtered.length === 0 ? (
         <EmptyState
           icon={Briefcase}
           title="No hay casos"
-          description="Crea tu primer caso para comenzar a gestionar materias legales."
-          action={
-            <button
-              onClick={() => setShowCreate(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4" />
-              Nuevo Caso
-            </button>
-          }
-        />
-      ) : filteredMatters.length === 0 ? (
-        <EmptyState
-          icon={Filter}
-          title="Sin resultados"
-          description="No se encontraron casos con los filtros seleccionados."
-          action={
-            <button
-              onClick={() => { setStatusFilter(""); setTypeFilter(""); }}
-              className="text-sm text-primary hover:underline"
-            >
-              Limpiar filtros
-            </button>
+          description={
+            searchTerm
+              ? "No se encontraron casos con los filtros seleccionados."
+              : "No hay casos registrados en el sistema."
           }
         />
       ) : (
-        <DataTable
-          data={filteredMatters}
-          columns={columns}
-          searchKey="title"
-          searchPlaceholder="Buscar por titulo..."
-          onRowClick={(matter) => router.push(`/matters/${matter.id}`)}
-        />
+        <div className="space-y-4">
+          {/* Audiencia Pronto */}
+          {audienciaProonto.length > 0 && (
+            <UrgencySection
+              title="Audiencia Pronto"
+              urgency="warning"
+              count={audienciaProonto.length}
+            >
+              <div className="p-3 space-y-3">
+                {audienciaProonto.map((m) => {
+                  const daysUntil = getDaysUntilHearing(m.next_hearing_date);
+                  const hearingUrgency = getHearingUrgency(daysUntil);
+                  const progress = getProcessProgress(
+                    m.process_id || "causas-jpl",
+                    m.status
+                  );
+                  const actionLabel = getNextActionLabel(
+                    m.process_id || "causas-jpl",
+                    m.status
+                  );
+
+                  return (
+                    <ItemCard
+                      key={m.id}
+                      title={m.title}
+                      subtitle={m.client_name}
+                      statusLabel={
+                        MATTER_STATUS_LABELS[m.status] || m.status
+                      }
+                      urgency={hearingUrgency}
+                      urgencyText={
+                        m.next_hearing_date
+                          ? `Audiencia: ${getTimeUntil(m.next_hearing_date)}`
+                          : undefined
+                      }
+                      progress={progress}
+                      meta={[
+                        ...(m.court
+                          ? [{ icon: Building, label: m.court }]
+                          : []),
+                        ...(m.rol
+                          ? [{ icon: Hash, label: `ROL: ${m.rol}` }]
+                          : []),
+                        { label: MATTER_TYPE_LABELS[m.type] || m.type },
+                        ...(m.assigned_to_name
+                          ? [{ icon: User, label: m.assigned_to_name }]
+                          : []),
+                        ...(m.last_movement_at
+                          ? [{ icon: Clock, label: `Ultimo mov: ${getRelativeTime(m.last_movement_at)}` }]
+                          : []),
+                      ]}
+                      actionLabel={actionLabel}
+                      actionHref={`/matters/${m.id}`}
+                      href={`/matters/${m.id}`}
+                    />
+                  );
+                })}
+              </div>
+            </UrgencySection>
+          )}
+
+          {/* Activos */}
+          {activos.length > 0 && (
+            <UrgencySection
+              title="Activos"
+              urgency="normal"
+              count={activos.length}
+            >
+              <div className="p-3 space-y-3">
+                {activos.map((m) => {
+                  const urgency = computeUrgency(m);
+                  const progress = getProcessProgress(
+                    m.process_id || "causas-jpl",
+                    m.status
+                  );
+                  const actionLabel = getNextActionLabel(
+                    m.process_id || "causas-jpl",
+                    m.status
+                  );
+
+                  return (
+                    <ItemCard
+                      key={m.id}
+                      title={m.title}
+                      subtitle={m.client_name}
+                      statusLabel={
+                        MATTER_STATUS_LABELS[m.status] || m.status
+                      }
+                      urgency={urgency}
+                      progress={progress}
+                      meta={[
+                        ...(m.court
+                          ? [{ icon: Building, label: m.court }]
+                          : []),
+                        ...(m.rol
+                          ? [{ icon: Hash, label: `ROL: ${m.rol}` }]
+                          : []),
+                        { label: MATTER_TYPE_LABELS[m.type] || m.type },
+                        ...(m.assigned_to_name
+                          ? [{ icon: User, label: m.assigned_to_name }]
+                          : []),
+                        ...(m.next_hearing_date
+                          ? [{ icon: Calendar, label: `Audiencia: ${getTimeUntil(m.next_hearing_date)}` }]
+                          : []),
+                        ...(m.last_movement_at
+                          ? [{ icon: Clock, label: `Ultimo mov: ${getRelativeTime(m.last_movement_at)}` }]
+                          : []),
+                      ]}
+                      actionLabel={actionLabel}
+                      actionHref={`/matters/${m.id}`}
+                      href={`/matters/${m.id}`}
+                    />
+                  );
+                })}
+              </div>
+            </UrgencySection>
+          )}
+
+          {/* Cerrados */}
+          {cerrados.length > 0 && (
+            <UrgencySection
+              title="Cerrados"
+              urgency="normal"
+              count={cerrados.length}
+              defaultOpen={false}
+            >
+              <div className="p-3 space-y-3">
+                {cerrados.map((m) => {
+                  const progress = getProcessProgress(
+                    m.process_id || "causas-jpl",
+                    m.status
+                  );
+
+                  return (
+                    <ItemCard
+                      key={m.id}
+                      title={m.title}
+                      subtitle={m.client_name}
+                      statusLabel={
+                        MATTER_STATUS_LABELS[m.status] || m.status
+                      }
+                      urgency="normal"
+                      progress={progress}
+                      meta={[
+                        ...(m.court
+                          ? [{ icon: Building, label: m.court }]
+                          : []),
+                        ...(m.rol
+                          ? [{ icon: Hash, label: `ROL: ${m.rol}` }]
+                          : []),
+                        { label: MATTER_TYPE_LABELS[m.type] || m.type },
+                        { icon: Calendar, label: formatDate(m.created_at) },
+                      ]}
+                      href={`/matters/${m.id}`}
+                    />
+                  );
+                })}
+              </div>
+            </UrgencySection>
+          )}
+        </div>
       )}
     </div>
   );

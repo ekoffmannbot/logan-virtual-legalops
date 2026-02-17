@@ -1,9 +1,15 @@
 // Mock data for demo mode (no backend required)
 
-const today = new Date().toISOString().split("T")[0];
+const now = new Date();
+const today = now.toISOString().split("T")[0];
 const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().split("T")[0];
 const lastWeek = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
+const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString().split("T")[0];
 const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+const in3Days = new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0];
+const in4Hours = new Date(Date.now() + 4 * 3600000).toISOString();
+const in1Hour = new Date(Date.now() + 1 * 3600000).toISOString();
 const nextMonth = new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
 
 // ─── Dashboard ───
@@ -17,17 +23,15 @@ const dashboardOverview = {
   leads_by_status: [
     { status: "new", count: 12 },
     { status: "contacted", count: 8 },
-    { status: "qualified", count: 5 },
+    { status: "meeting_scheduled", count: 5 },
     { status: "proposal_sent", count: 3 },
-    { status: "converted", count: 15 },
+    { status: "won", count: 15 },
     { status: "lost", count: 4 },
   ],
   matters_by_type: [
     { type: "civil", count: 14 },
-    { type: "laboral", count: 9 },
-    { type: "penal", count: 5 },
-    { type: "familia", count: 4 },
-    { type: "corporativo", count: 2 },
+    { type: "jpl", count: 9 },
+    { type: "other", count: 5 },
   ],
   overdue_tasks: [
     { id: 1, title: "Revisar contrato Pérez SpA", due_date: yesterday, assigned_to_name: "María Fernández", matter_title: "Pérez SpA vs Banco Central" },
@@ -36,19 +40,147 @@ const dashboardOverview = {
   ],
   critical_deadlines: [
     { id: 1, title: "Plazo contestación demanda", due_date: nextWeek, severity: "high", matter_title: "Pérez SpA vs Banco Central" },
-    { id: 2, title: "Audiencia preparatoria", due_date: nextMonth, severity: "medium", matter_title: "Rojas c/ Inmobiliaria Sur" },
-    { id: 3, title: "Vencimiento poder notarial", due_date: nextWeek, severity: "critical", matter_title: "Herencia González" },
+    { id: 2, title: "Audiencia preparatoria", due_date: nextMonth, severity: "med", matter_title: "Rojas c/ Inmobiliaria Sur" },
+    { id: 3, title: "Vencimiento poder notarial", due_date: in3Days, severity: "critical", matter_title: "Herencia González" },
   ],
 };
 
-// ─── Leads ───
+// ─── Dashboard Action Items (v2 – Mission Control) ───
+const dashboardActionItems = {
+  urgent: [
+    {
+      id: "u1",
+      type: "invoice",
+      title: "Factura vencida: Inmobiliaria Sur",
+      subtitle: "FAC-002 · $1.800.000",
+      urgencyText: "Vencida hace 2 días",
+      actionLabel: "Gestionar Cobro",
+      actionHref: "/collections",
+      secondaryLabel: "Ver Factura",
+      secondaryHref: "/collections",
+      amount: "$1.800.000",
+    },
+    {
+      id: "u2",
+      type: "email_ticket",
+      title: "SLA por vencer: Email Roberto Sánchez",
+      subtitle: "Consulta plazo contestación",
+      urgencyText: "Quedan 4h para responder",
+      actionLabel: "Responder",
+      actionHref: "/email-tickets",
+    },
+    {
+      id: "u3",
+      type: "lead",
+      title: "Lead sin contactar: Andrés Riquelme",
+      subtitle: "Minera del Norte · Derecho minero",
+      urgencyText: "Sin contacto hace 5 horas",
+      actionLabel: "Llamar",
+      actionHref: "/leads/5",
+    },
+  ],
+  today: [
+    {
+      id: "t1",
+      type: "case_review",
+      title: "Revisión diaria de causas",
+      subtitle: "4 causas pendientes de revisión",
+      actionLabel: "Iniciar Revisión",
+      actionHref: "/case-review",
+    },
+    {
+      id: "t2",
+      type: "proposal",
+      title: "Seguimiento 72h: Propuesta Sánchez",
+      subtitle: "Asesoría laboral · $3.500.000",
+      actionLabel: "Contactar",
+      actionHref: "/proposals/1",
+    },
+    {
+      id: "t3",
+      type: "notary",
+      title: "Retirar documento: Poder González",
+      subtitle: "Notaría 23 Santiago",
+      actionLabel: "Marcar Retirado",
+      actionHref: "/notary/1",
+    },
+  ],
+  inProgress: [
+    {
+      id: "p1",
+      type: "contract",
+      title: "Contrato Pérez SpA",
+      subtitle: "En revisión por abogado jefe",
+      processId: "contrato-mandato",
+      status: "pending_review",
+      href: "/contracts/1",
+    },
+    {
+      id: "p2",
+      type: "notary",
+      title: "Escritura Herrera Corp",
+      subtitle: "En notaría para firma",
+      processId: "documentos-notariales",
+      status: "sent_to_notary",
+      href: "/notary/2",
+    },
+    {
+      id: "p3",
+      type: "matter",
+      title: "Rojas c/ Inmobiliaria Sur",
+      subtitle: "Preparando escrito de demanda",
+      processId: "causas-jpl",
+      status: "case_started",
+      href: "/matters/2",
+    },
+  ],
+  completed: [
+    {
+      id: "c1",
+      title: "Escritura constitución Herrera Corp",
+      subtitle: "Completado a las 10:30",
+      type: "notary",
+    },
+    {
+      id: "c2",
+      title: "Pago recibido: Pérez SpA · FAC-001",
+      subtitle: "Completado a las 09:15",
+      type: "collection",
+    },
+  ],
+  agentInsights: [
+    {
+      agentName: "Secretaria",
+      message: "Auto-creé seguimiento para propuesta Sánchez. Han pasado 72 horas desde el envío.",
+      type: "info" as const,
+    },
+    {
+      agentName: "Jefe Cobranza",
+      message: "Recomiendo escalar factura Inmobiliaria Sur. 3 intentos de contacto sin éxito.",
+      type: "warning" as const,
+    },
+    {
+      agentName: "Abogado",
+      message: "El contrato Pérez SpA tiene una cláusula de indemnización que requiere revisión adicional.",
+      type: "suggestion" as const,
+    },
+  ],
+  quickNumbers: {
+    leads: 12,
+    proposals: 8,
+    matters: 34,
+    overdue: 5,
+  },
+};
+
+// ─── Leads (enriched with process data) ───
 const leads = {
   items: [
-    { id: 1, full_name: "Roberto Sánchez", email: "rsanchez@empresa.cl", phone: "+56912345678", company: "Empresa Sánchez Ltda.", source: "referral", status: "new", notes: "Interesado en asesoría laboral", assigned_to_name: "María Fernández", created_at: today },
-    { id: 2, full_name: "Patricia Muñoz", email: "pmunoz@gmail.com", phone: "+56987654321", company: "Muñoz & Asociados", source: "website", status: "contacted", notes: "Consulta por litigio comercial", assigned_to_name: "Carlos Logan", created_at: yesterday },
-    { id: 3, full_name: "Diego Herrera", email: "dherrera@corp.cl", phone: "+56911223344", company: "Herrera Corp.", source: "referral", status: "qualified", notes: "Necesita representación en juicio civil", assigned_to_name: "María Fernández", created_at: lastWeek },
-    { id: 4, full_name: "Camila Vega", email: "cvega@vegalaw.cl", phone: "+56955667788", company: null, source: "cold_call", status: "proposal_sent", notes: "Propuesta enviada para caso familia", assigned_to_name: "Carlos Logan", created_at: lastWeek },
-    { id: 5, full_name: "Andrés Riquelme", email: "ariquelme@minera.cl", phone: "+56933445566", company: "Minera del Norte S.A.", source: "website", status: "new", notes: "Consulta por derecho minero", assigned_to_name: "María Fernández", created_at: today },
+    { id: 1, full_name: "Roberto Sánchez", email: "rsanchez@empresa.cl", phone: "+56912345678", company: "Empresa Sánchez Ltda.", source: "walk_in", status: "new", notes: "Interesado en asesoría laboral", assigned_to_name: "María Fernández", created_at: today, process_id: "recepcion-visita" },
+    { id: 2, full_name: "Patricia Muñoz", email: "pmunoz@gmail.com", phone: "+56987654321", company: "Muñoz & Asociados", source: "inbound_call", status: "contacted", notes: "Consulta por litigio comercial", assigned_to_name: "Carlos Logan", created_at: yesterday, process_id: "recepcion-telefono" },
+    { id: 3, full_name: "Diego Herrera", email: "dherrera@corp.cl", phone: "+56911223344", company: "Herrera Corp.", source: "referral", status: "meeting_scheduled", notes: "Necesita representación en juicio civil", assigned_to_name: "María Fernández", created_at: lastWeek, process_id: "recepcion-visita" },
+    { id: 4, full_name: "Camila Vega", email: "cvega@vegalaw.cl", phone: "+56955667788", company: null, source: "inbound_call", status: "proposal_sent", notes: "Propuesta enviada para caso familia", assigned_to_name: "Carlos Logan", created_at: lastWeek, process_id: "recepcion-visita" },
+    { id: 5, full_name: "Andrés Riquelme", email: "ariquelme@minera.cl", phone: "+56933445566", company: "Minera del Norte S.A.", source: "scraper_legalbot", status: "new", notes: "Consulta por derecho minero", assigned_to_name: "María Fernández", created_at: today, process_id: "recepcion-visita" },
   ],
   total: 5,
 };
@@ -61,55 +193,55 @@ const clients = [
   { id: 4, type: "persona", name: "María González Torres", rut: "9.876.543-2", email: "mgonzalez@email.cl", phone: "+56998765432", address: "Manuel Montt 345, Ñuñoa", active_matters_count: 1, total_billed: 2100000, created_at: lastWeek },
 ];
 
-// ─── Matters ───
+// ─── Matters (enriched) ───
 const matters = {
   items: [
-    { id: 1, title: "Pérez SpA vs Banco Central", type: "civil", status: "active", client_name: "Pérez SpA", assigned_to_name: "Carlos Logan", court: "1er Juzgado Civil Santiago", rol: "C-1234-2024", created_at: lastWeek, next_hearing_date: nextMonth },
-    { id: 2, title: "Rojas c/ Inmobiliaria Sur", type: "civil", status: "active", client_name: "Juan Rojas Muñoz", assigned_to_name: "María Fernández", court: "2do Juzgado Civil Santiago", rol: "C-5678-2024", created_at: lastWeek, next_hearing_date: nextWeek },
-    { id: 3, title: "Herencia González", type: "familia", status: "active", client_name: "María González Torres", assigned_to_name: "Carlos Logan", court: "Juzgado de Familia Santiago", rol: "F-9012-2024", created_at: lastWeek, next_hearing_date: null },
-    { id: 4, title: "Despido injustificado Muñoz", type: "laboral", status: "active", client_name: "Patricia Muñoz", assigned_to_name: "María Fernández", court: "1er Juzgado del Trabajo", rol: "T-3456-2024", created_at: lastWeek, next_hearing_date: nextMonth },
-    { id: 5, title: "Constitución sociedad Herrera", type: "corporativo", status: "closed", client_name: "Herrera Corp.", assigned_to_name: "Carlos Logan", court: null, rol: null, created_at: lastWeek, next_hearing_date: null },
+    { id: 1, title: "Pérez SpA vs Banco Central", type: "civil", status: "open", client_name: "Pérez SpA", assigned_to_name: "Carlos Logan", court: "1er Juzgado Civil Santiago", rol: "C-1234-2024", created_at: lastWeek, next_hearing_date: nextMonth, last_movement_at: yesterday, process_id: "revision-causas" },
+    { id: 2, title: "Rojas c/ Inmobiliaria Sur", type: "civil", status: "open", client_name: "Juan Rojas Muñoz", assigned_to_name: "María Fernández", court: "2do Juzgado Civil Santiago", rol: "C-5678-2024", created_at: lastWeek, next_hearing_date: in3Days, last_movement_at: lastWeek, process_id: "revision-causas" },
+    { id: 3, title: "Herencia González", type: "other", status: "open", client_name: "María González Torres", assigned_to_name: "Carlos Logan", court: "Juzgado de Familia Santiago", rol: "F-9012-2024", created_at: twoWeeksAgo, next_hearing_date: null, last_movement_at: lastWeek, process_id: "revision-causas" },
+    { id: 4, title: "Despido injustificado Muñoz", type: "jpl", status: "open", client_name: "Patricia Muñoz", assigned_to_name: "María Fernández", court: "1er Juzgado del Trabajo", rol: "T-3456-2024", created_at: lastWeek, next_hearing_date: nextMonth, last_movement_at: yesterday, process_id: "causas-jpl" },
+    { id: 5, title: "Constitución sociedad Herrera", type: "other", status: "closed", client_name: "Herrera Corp.", assigned_to_name: "Carlos Logan", court: null, rol: null, created_at: twoWeeksAgo, next_hearing_date: null, last_movement_at: lastWeek, process_id: "revision-causas" },
   ],
   total: 5,
 };
 
-// ─── Proposals ───
+// ─── Proposals (enriched) ───
 const proposals = {
   items: [
-    { id: 1, title: "Propuesta asesoría laboral Sánchez", client_name: "Empresa Sánchez Ltda.", status: "draft", amount: 3500000, currency: "CLP", valid_until: nextMonth, assigned_to_name: "María Fernández", created_at: today },
-    { id: 2, title: "Representación litigio comercial", client_name: "Muñoz & Asociados", status: "sent", amount: 8000000, currency: "CLP", valid_until: nextMonth, assigned_to_name: "Carlos Logan", created_at: yesterday },
-    { id: 3, title: "Asesoría derecho minero", client_name: "Minera del Norte S.A.", status: "accepted", amount: 12000000, currency: "CLP", valid_until: nextMonth, assigned_to_name: "Carlos Logan", created_at: lastWeek },
-    { id: 4, title: "Caso familia Vega", client_name: "Camila Vega", status: "rejected", amount: 2000000, currency: "CLP", valid_until: yesterday, assigned_to_name: "María Fernández", created_at: lastWeek },
+    { id: 1, title: "Propuesta asesoría laboral Sánchez", client_name: "Empresa Sánchez Ltda.", status: "draft", amount: 3500000, currency: "CLP", valid_until: nextMonth, assigned_to_name: "María Fernández", created_at: today, process_id: "seguimiento-propuestas" },
+    { id: 2, title: "Representación litigio comercial", client_name: "Muñoz & Asociados", status: "sent", amount: 8000000, currency: "CLP", valid_until: nextMonth, assigned_to_name: "Carlos Logan", created_at: twoDaysAgo, process_id: "seguimiento-propuestas", sent_at: twoDaysAgo },
+    { id: 3, title: "Asesoría derecho minero", client_name: "Minera del Norte S.A.", status: "accepted", amount: 12000000, currency: "CLP", valid_until: nextMonth, assigned_to_name: "Carlos Logan", created_at: lastWeek, process_id: "seguimiento-propuestas" },
+    { id: 4, title: "Caso familia Vega", client_name: "Camila Vega", status: "rejected", amount: 2000000, currency: "CLP", valid_until: yesterday, assigned_to_name: "María Fernández", created_at: lastWeek, process_id: "seguimiento-propuestas" },
   ],
   total: 4,
 };
 
-// ─── Contracts ───
+// ─── Contracts (enriched) ───
 const contracts = [
-  { id: 1, title: "Contrato honorarios Pérez SpA", client_name: "Pérez SpA", type: "honorarios", status: "active", start_date: lastWeek, end_date: nextMonth, monthly_fee: 2500000, currency: "CLP", created_at: lastWeek },
-  { id: 2, title: "Convenio Inmobiliaria Sur", client_name: "Inmobiliaria Sur Ltda.", type: "convenio", status: "active", start_date: lastWeek, end_date: nextMonth, monthly_fee: 1800000, currency: "CLP", created_at: lastWeek },
-  { id: 3, title: "Poder amplio González", client_name: "María González Torres", type: "poder", status: "pending_signature", start_date: today, end_date: null, monthly_fee: null, currency: "CLP", created_at: today },
+  { id: 1, title: "Contrato honorarios Pérez SpA", client_name: "Pérez SpA", type: "honorarios", status: "pending_review", start_date: lastWeek, end_date: nextMonth, monthly_fee: 2500000, currency: "CLP", created_at: lastWeek, process_id: "contrato-mandato" },
+  { id: 2, title: "Convenio Inmobiliaria Sur", client_name: "Inmobiliaria Sur Ltda.", type: "convenio", status: "drafting", start_date: lastWeek, end_date: nextMonth, monthly_fee: 1800000, currency: "CLP", created_at: lastWeek, process_id: "contrato-mandato" },
+  { id: 3, title: "Poder amplio González", client_name: "María González Torres", type: "poder", status: "pending_data", start_date: today, end_date: null, monthly_fee: null, currency: "CLP", created_at: today, process_id: "contrato-mandato" },
 ];
 
-// ─── Notary ───
+// ─── Notary (enriched) ───
 const notaryDocs = [
-  { id: 1, document_type: "poder", title: "Poder notarial González", client_name: "María González Torres", notary_name: "Notaría 23 Santiago", status: "at_notary", submitted_date: yesterday, created_at: lastWeek },
-  { id: 2, document_type: "escritura", title: "Escritura constitución Herrera Corp", client_name: "Herrera Corp.", notary_name: "Notaría 15 Santiago", status: "completed", submitted_date: lastWeek, created_at: lastWeek },
-  { id: 3, document_type: "certificado", title: "Certificado vigencia Pérez SpA", client_name: "Pérez SpA", notary_name: "Notaría 8 Santiago", status: "pending", submitted_date: null, created_at: today },
+  { id: 1, document_type: "poder", title: "Poder notarial González", client_name: "María González Torres", notary_name: "Notaría 23 Santiago", status: "sent_to_notary", submitted_date: yesterday, created_at: lastWeek, process_id: "documentos-notariales" },
+  { id: 2, document_type: "escritura", title: "Escritura constitución Herrera Corp", client_name: "Herrera Corp.", notary_name: "Notaría 15 Santiago", status: "archived", submitted_date: lastWeek, created_at: twoWeeksAgo, process_id: "documentos-notariales" },
+  { id: 3, document_type: "certificado", title: "Certificado vigencia Pérez SpA", client_name: "Pérez SpA", notary_name: "Notaría 8 Santiago", status: "antecedents_requested", submitted_date: null, created_at: today, process_id: "documentos-notariales" },
 ];
 
 const notaryStats = { total: 3, pending: 1, at_notary: 1, completed: 1 };
 
-// ─── Collections ───
+// ─── Collections (enriched) ───
 const invoices = [
-  { id: 1, invoice_number: "FAC-001", client_name: "Pérez SpA", amount: 2500000, amount_paid: 2500000, currency: "CLP", status: "paid", due_date: lastWeek, issued_date: lastWeek, created_at: lastWeek },
-  { id: 2, invoice_number: "FAC-002", client_name: "Inmobiliaria Sur Ltda.", amount: 1800000, amount_paid: 0, currency: "CLP", status: "overdue", due_date: yesterday, issued_date: lastWeek, created_at: lastWeek },
-  { id: 3, invoice_number: "FAC-003", client_name: "Juan Rojas Muñoz", amount: 500000, amount_paid: 250000, currency: "CLP", status: "partial", due_date: nextWeek, issued_date: today, created_at: today },
-  { id: 4, invoice_number: "FAC-004", client_name: "María González Torres", amount: 350000, amount_paid: 0, currency: "CLP", status: "pending", due_date: nextMonth, issued_date: today, created_at: today },
+  { id: 1, invoice_number: "FAC-001", client_name: "Pérez SpA", amount: 2500000, amount_paid: 2500000, currency: "CLP", status: "paid", due_date: lastWeek, issued_date: twoWeeksAgo, created_at: twoWeeksAgo, process_id: "proceso-cobranza" },
+  { id: 2, invoice_number: "FAC-002", client_name: "Inmobiliaria Sur Ltda.", amount: 1800000, amount_paid: 0, currency: "CLP", status: "overdue", due_date: twoDaysAgo, issued_date: lastWeek, created_at: lastWeek, process_id: "proceso-cobranza" },
+  { id: 3, invoice_number: "FAC-003", client_name: "Juan Rojas Muñoz", amount: 500000, amount_paid: 250000, currency: "CLP", status: "due", due_date: in3Days, issued_date: today, created_at: today, process_id: "proceso-cobranza" },
+  { id: 4, invoice_number: "FAC-004", client_name: "María González Torres", amount: 350000, amount_paid: 0, currency: "CLP", status: "scheduled", due_date: nextMonth, issued_date: today, created_at: today, process_id: "proceso-cobranza" },
 ];
 
 const collectionCases = [
-  { id: 1, invoice_id: 2, client_name: "Inmobiliaria Sur Ltda.", status: "active", total_debt: 1800000, currency: "CLP", contact_attempts: 3, next_action: "Enviar carta certificada", next_action_date: nextWeek, created_at: yesterday },
+  { id: 1, invoice_id: 2, client_name: "Inmobiliaria Sur Ltda.", status: "escalated", total_debt: 1800000, currency: "CLP", contact_attempts: 3, next_action: "Enviar carta certificada", next_action_date: in3Days, created_at: yesterday, process_id: "proceso-cobranza" },
 ];
 
 const collectionStats = {
@@ -120,21 +252,22 @@ const collectionStats = {
   collection_rate: 72.5,
 };
 
-// ─── Email Tickets ───
+// ─── Email Tickets (enriched) ───
 const emailTickets = [
-  { id: 1, subject: "Consulta plazo contestación", from_email: "rsanchez@empresa.cl", from_name: "Roberto Sánchez", status: "open", priority: "high", assigned_to_name: "María Fernández", matter_title: "Pérez SpA vs Banco Central", created_at: today, sla_deadline: nextWeek },
-  { id: 2, subject: "Envío documentos firmados", from_email: "mgonzalez@email.cl", from_name: "María González", status: "in_progress", priority: "medium", assigned_to_name: "Ana Torres", matter_title: "Herencia González", created_at: yesterday, sla_deadline: nextWeek },
-  { id: 3, subject: "Solicitud reunión urgente", from_email: "legal@insur.cl", from_name: "Inmobiliaria Sur", status: "resolved", priority: "low", assigned_to_name: "Carlos Logan", matter_title: "Rojas c/ Inmobiliaria Sur", created_at: lastWeek, sla_deadline: null },
+  { id: 1, subject: "Consulta plazo contestación", from_email: "rsanchez@empresa.cl", from_name: "Roberto Sánchez", status: "new", priority: "high", assigned_to_name: "María Fernández", matter_title: "Pérez SpA vs Banco Central", created_at: today, sla_deadline: in4Hours, sla_24h_deadline: in4Hours, process_id: "respuesta-correos" },
+  { id: 2, subject: "Envío documentos firmados", from_email: "mgonzalez@email.cl", from_name: "María González", status: "drafting", priority: "medium", assigned_to_name: "Ana Torres", matter_title: "Herencia González", created_at: yesterday, sla_deadline: nextWeek, sla_24h_deadline: nextWeek, process_id: "respuesta-correos" },
+  { id: 3, subject: "Solicitud reunión urgente", from_email: "legal@insur.cl", from_name: "Inmobiliaria Sur", status: "closed", priority: "low", assigned_to_name: "Carlos Logan", matter_title: "Rojas c/ Inmobiliaria Sur", created_at: lastWeek, sla_deadline: null, sla_24h_deadline: null, process_id: "respuesta-correos" },
+  { id: 4, subject: "Solicitud copia expediente", from_email: "tribunal@pjud.cl", from_name: "Tribunal Civil", status: "new", priority: "high", assigned_to_name: "Carlos Logan", matter_title: "Pérez SpA vs Banco Central", created_at: today, sla_deadline: in1Hour, sla_24h_deadline: in1Hour, process_id: "respuesta-correos" },
 ];
 
-const emailTicketStats = { total: 3, open: 1, sla_at_risk: 0, sla_breached: 0, unassigned: 0 };
+const emailTicketStats = { total: 4, open: 2, sla_at_risk: 1, sla_breached: 0, unassigned: 0 };
 
-// ─── Case Review ───
+// ─── Case Review (enriched) ───
 const openMatters = [
-  { id: 1, title: "Pérez SpA vs Banco Central", type: "civil", status: "active", client_name: "Pérez SpA", assigned_to_name: "Carlos Logan", last_movement_date: yesterday, days_without_movement: 1 },
-  { id: 2, title: "Rojas c/ Inmobiliaria Sur", type: "civil", status: "active", client_name: "Juan Rojas Muñoz", assigned_to_name: "María Fernández", last_movement_date: lastWeek, days_without_movement: 7 },
-  { id: 3, title: "Herencia González", type: "familia", status: "active", client_name: "María González Torres", assigned_to_name: "Carlos Logan", last_movement_date: lastWeek, days_without_movement: 7 },
-  { id: 4, title: "Despido injustificado Muñoz", type: "laboral", status: "active", client_name: "Patricia Muñoz", assigned_to_name: "María Fernández", last_movement_date: yesterday, days_without_movement: 1 },
+  { id: "1", title: "Pérez SpA vs Banco Central", court: "1er Juzgado Civil Santiago", rol_number: "C-1234-2024", client_name: "Pérez SpA", status: "pending_review", assigned_to: "Carlos Logan", last_movement_at: yesterday },
+  { id: "2", title: "Rojas c/ Inmobiliaria Sur", court: "2do Juzgado Civil Santiago", rol_number: "C-5678-2024", client_name: "Juan Rojas Muñoz", status: "pending_review", assigned_to: "María Fernández", last_movement_at: lastWeek },
+  { id: "3", title: "Herencia González", court: "Juzgado de Familia Santiago", rol_number: "F-9012-2024", client_name: "María González Torres", status: "pending_review", assigned_to: "Carlos Logan", last_movement_at: twoWeeksAgo },
+  { id: "4", title: "Despido injustificado Muñoz", court: "1er Juzgado del Trabajo", rol_number: "T-3456-2024", client_name: "Patricia Muñoz", status: "pending_review", assigned_to: "María Fernández", last_movement_at: yesterday },
 ];
 
 // ─── Scraper ───
@@ -152,7 +285,7 @@ const scraperResults = [
 const tasks = [
   { id: 1, title: "Revisar contrato Pérez SpA", description: "Revisión final del contrato de honorarios", status: "pending", type: "review", priority: "high", due_date: nextWeek, assigned_to_name: "María Fernández", matter_title: "Pérez SpA vs Banco Central", created_at: today },
   { id: 2, title: "Preparar escrito demanda", description: "Redactar escrito de demanda para caso Rojas", status: "in_progress", type: "draft", priority: "high", due_date: nextWeek, assigned_to_name: "Carlos Logan", matter_title: "Rojas c/ Inmobiliaria Sur", created_at: yesterday },
-  { id: 3, title: "Enviar notificación notarial", description: "Enviar poder notarial firmado", status: "completed", type: "notification", priority: "medium", due_date: today, assigned_to_name: "Ana Torres", matter_title: "Herencia González", created_at: lastWeek },
+  { id: 3, title: "Enviar notificación notarial", description: "Enviar poder notarial firmado", status: "done", type: "notification", priority: "medium", due_date: today, assigned_to_name: "Ana Torres", matter_title: "Herencia González", created_at: lastWeek },
   { id: 4, title: "Agendar audiencia preparatoria", description: "Coordinar fecha con tribunal", status: "pending", type: "scheduling", priority: "medium", due_date: nextMonth, assigned_to_name: "María Fernández", matter_title: "Despido injustificado Muñoz", created_at: today },
 ];
 
@@ -257,6 +390,7 @@ export function getMockData(path: string): any {
 
   // Dashboard
   if (cleanPath === "/dashboards/overview") return dashboardOverview;
+  if (cleanPath === "/dashboards/action-items") return dashboardActionItems;
 
   // Leads
   if (cleanPath === "/leads") return leads;

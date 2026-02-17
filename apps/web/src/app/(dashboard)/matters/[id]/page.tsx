@@ -1,526 +1,321 @@
 "use client";
 
-import { useState } from "react";
+import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter, useParams } from "next/navigation";
+import { Loader2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
-import { cn, formatDate, formatDateTime, formatCurrency } from "@/lib/utils";
+import { cn, formatDate, formatCurrency } from "@/lib/utils";
 import {
   MATTER_STATUS_LABELS,
   MATTER_TYPE_LABELS,
-  TASK_STATUS_LABELS,
-  DEADLINE_SEVERITY_LABELS,
 } from "@/lib/constants";
-import { StatusBadge } from "@/components/shared/status-badge";
-import { Timeline } from "@/components/shared/timeline";
-import { WorkflowActions } from "@/components/shared/workflow-actions";
-import { EmptyState } from "@/components/shared/empty-state";
+import { ALL_PROCESSES } from "@/lib/process-definitions";
 import {
-  ArrowLeft,
-  Loader2,
-  AlertCircle,
-  Briefcase,
-  User,
-  Calendar,
-  Clock,
-  FileText,
-  CheckSquare,
-  MessageSquare,
-  FolderOpen,
-  CalendarClock,
-  ClipboardList,
-  LayoutDashboard,
-} from "lucide-react";
+  getProcessProgress,
+  getAgentSuggestions,
+  getNextActionLabel,
+  getTimeUntil,
+  getRelativeTime,
+} from "@/lib/process-status-map";
+import { WizardDetail } from "@/components/shared/wizard-detail";
+
+/* ------------------------------------------------------------------ */
+/* Types                                                               */
+/* ------------------------------------------------------------------ */
+
+interface MatterTask {
+  id: string;
+  title: string;
+  status: string;
+  due_date: string | null;
+  assigned_to_name: string | null;
+}
+
+interface MatterDocument {
+  id: string;
+  filename: string;
+  doc_type: string | null;
+  uploaded_at: string;
+}
+
+interface TimelineEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  timestamp: string;
+  type: string;
+  actor: string | null;
+}
 
 interface MatterDetail {
-  id: number;
+  id: string;
   title: string;
-  description?: string;
-  client_id: number;
-  client_name: string;
-  matter_type: string;
+  type: string;
   status: string;
-  assigned_lawyer_name?: string;
-  rit?: string;
-  court?: string;
+  client_name: string;
+  assigned_to_name: string | null;
+  court: string | null;
+  rol: string | null;
   created_at: string;
-  updated_at: string;
-  deadlines: Array<{
-    id: number;
-    title: string;
-    due_date: string;
-    severity: string;
-    completed: boolean;
-  }>;
-  gestiones: Array<{
-    id: number;
-    title: string;
-    gestion_type: string;
-    date: string;
-    result?: string;
-  }>;
-  documents: Array<{
-    id: number;
-    filename: string;
-    doc_type?: string;
-    uploaded_at: string;
-  }>;
-  tasks: Array<{
-    id: number;
-    title: string;
-    status: string;
-    due_date?: string;
-    assigned_to_name?: string;
-  }>;
-  communications: Array<{
-    id: number;
-    channel: string;
-    subject?: string;
-    snippet?: string;
-    sent_at: string;
-    direction: string;
-  }>;
-  timeline: Array<{
-    id: number;
-    title: string;
-    description?: string;
-    timestamp: string;
-    type?: "status_change" | "communication" | "task" | "audit" | "note";
-    actor?: string;
-  }>;
+  next_hearing_date: string | null;
+  last_movement_at: string | null;
+  process_id: string;
+  tasks: MatterTask[];
+  documents: MatterDocument[];
+  timeline: TimelineEvent[];
 }
 
-type TabKey = "summary" | "deadlines" | "gestiones" | "documents" | "tasks" | "communications";
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
 
-const TABS: Array<{ key: TabKey; label: string; icon: React.ElementType }> = [
-  { key: "summary", label: "Resumen", icon: LayoutDashboard },
-  { key: "deadlines", label: "Plazos", icon: CalendarClock },
-  { key: "gestiones", label: "Gestiones", icon: ClipboardList },
-  { key: "documents", label: "Documentos", icon: FolderOpen },
-  { key: "tasks", label: "Tareas", icon: CheckSquare },
-  { key: "communications", label: "Comunicaciones", icon: MessageSquare },
-];
+const TASK_STATUS_STYLES: Record<string, string> = {
+  open: "bg-blue-100 text-blue-800",
+  in_progress: "bg-yellow-100 text-yellow-800",
+  done: "bg-green-100 text-green-800",
+  cancelled: "bg-gray-100 text-gray-800",
+};
 
-function getWorkflowActions(status: string) {
-  const actions: Array<{
-    label: string;
-    action: string;
-    variant?: "default" | "primary" | "destructive";
-  }> = [];
+const TASK_STATUS_LABELS: Record<string, string> = {
+  open: "Abierta",
+  in_progress: "En Progreso",
+  done: "Completada",
+  cancelled: "Cancelada",
+};
 
-  switch (status) {
-    case "open":
-      actions.push({ label: "Cerrar Caso", action: "closed", variant: "default" });
-      actions.push({ label: "Suspender por Impago", action: "suspended_nonpayment", variant: "destructive" });
-      break;
-    case "suspended_nonpayment":
-      actions.push({ label: "Reabrir Caso", action: "open", variant: "primary" });
-      actions.push({ label: "Terminar Caso", action: "terminated", variant: "destructive" });
-      break;
-    case "closed":
-      actions.push({ label: "Reabrir Caso", action: "open", variant: "primary" });
-      break;
-    default:
-      break;
-  }
-
-  return actions;
-}
+/* ------------------------------------------------------------------ */
+/* Page Component                                                      */
+/* ------------------------------------------------------------------ */
 
 export default function MatterDetailPage() {
-  const router = useRouter();
   const params = useParams();
   const queryClient = useQueryClient();
   const matterId = params.id as string;
-  const [activeTab, setActiveTab] = useState<TabKey>("summary");
 
-  const { data: matter, isLoading, error } = useQuery<MatterDetail>({
+  // ---- Fetch ----
+  const { data: matter, isLoading, error } = useQuery({
     queryKey: ["matter", matterId],
-    queryFn: () => api.get(`/matters/${matterId}`),
+    queryFn: () => api.get<MatterDetail>(`/matters/${matterId}`),
   });
 
+  // ---- Mutation: status transitions ----
   const transitionMutation = useMutation({
     mutationFn: (action: string) =>
-      api.post(`/matters/${matterId}/transition`, { action }),
+      api.patch(`/matters/${matterId}`, { action }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["matter", matterId] });
       queryClient.invalidateQueries({ queryKey: ["matters"] });
     },
   });
 
-  const handleAction = (action: string) => {
-    transitionMutation.mutate(action);
-  };
-
+  // ---- Loading ----
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-24">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
+  // ---- Error / not found ----
   if (error || !matter) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className="flex flex-col items-center justify-center py-24 text-center">
         <AlertCircle className="h-10 w-10 text-destructive mb-3" />
-        <p className="text-lg font-medium">Error al cargar el caso</p>
+        <p className="text-lg font-medium">Caso no encontrado</p>
         <p className="text-sm text-muted-foreground mt-1">
-          No se encontro el caso solicitado.
+          No se pudo cargar el caso solicitado.
         </p>
-        <button
-          onClick={() => router.push("/matters")}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver a Casos
-        </button>
       </div>
     );
   }
 
-  const workflowActions = getWorkflowActions(matter.status);
+  // ---- Process progress ----
+  const processId = matter.process_id || "revision-causas";
+  const progress = getProcessProgress(processId, matter.status);
+  const processDef = ALL_PROCESSES["matters"] || ALL_PROCESSES["case-review"];
+  const suggestions = getAgentSuggestions(processId, matter.status, matter);
+  const nextAction = getNextActionLabel(processId, matter.status);
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push("/matters")}
-          className="rounded-lg border p-2 hover:bg-muted"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{matter.title}</h1>
-            <StatusBadge
-              status={matter.status}
-              label={MATTER_STATUS_LABELS[matter.status] || matter.status}
-            />
-          </div>
-          <p className="text-muted-foreground">
-            {MATTER_TYPE_LABELS[matter.matter_type] || matter.matter_type} · {matter.client_name}
-            {matter.rit && ` · RIT ${matter.rit}`}
-          </p>
-        </div>
-      </div>
+  // ---- Derived data ----
+  const nextHearingText = matter.next_hearing_date
+    ? getTimeUntil(matter.next_hearing_date)
+    : null;
+  const lastMovementText = matter.last_movement_at
+    ? getRelativeTime(matter.last_movement_at)
+    : null;
 
-      {/* Workflow Actions */}
-      {workflowActions.length > 0 && (
-        <div className="rounded-xl border bg-white p-4">
-          <p className="text-sm font-medium text-muted-foreground mb-3">Acciones disponibles</p>
-          <WorkflowActions actions={workflowActions} onAction={handleAction} />
-          {transitionMutation.isPending && (
-            <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Procesando...
-            </div>
-          )}
-          {transitionMutation.isError && (
-            <p className="mt-2 text-sm text-destructive">
-              Error al realizar la accion. Intente nuevamente.
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Tab Navigation */}
-      <div className="flex gap-1 rounded-lg border bg-white p-1 overflow-x-auto">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap",
-                activeTab === tab.key
-                  ? "bg-primary text-white"
-                  : "text-muted-foreground hover:bg-muted"
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Tab: Resumen */}
-      {activeTab === "summary" && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-1 space-y-6">
-            {/* Matter Info */}
-            <div className="rounded-xl border bg-white p-6">
-              <h3 className="text-base font-semibold mb-4">Informacion del Caso</h3>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <User className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Cliente</p>
-                    <p
-                      className="text-sm font-medium text-primary cursor-pointer hover:underline"
-                      onClick={() => router.push(`/clients/${matter.client_id}`)}
-                    >
-                      {matter.client_name}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Briefcase className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Tipo</p>
-                    <p className="text-sm">{MATTER_TYPE_LABELS[matter.matter_type] || matter.matter_type}</p>
-                  </div>
-                </div>
-                {matter.assigned_lawyer_name && (
-                  <div className="flex items-start gap-3">
-                    <User className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Abogado asignado</p>
-                      <p className="text-sm">{matter.assigned_lawyer_name}</p>
-                    </div>
-                  </div>
-                )}
-                {matter.rit && (
-                  <div className="flex items-start gap-3">
-                    <FileText className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">RIT</p>
-                      <p className="text-sm">{matter.rit}</p>
-                    </div>
-                  </div>
-                )}
-                {matter.court && (
-                  <div className="flex items-start gap-3">
-                    <Briefcase className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Tribunal</p>
-                      <p className="text-sm">{matter.court}</p>
-                    </div>
-                  </div>
-                )}
-                <div className="flex items-start gap-3">
-                  <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Creado</p>
-                    <p className="text-sm">{formatDate(matter.created_at)}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Ultima actualizacion</p>
-                    <p className="text-sm">{formatDateTime(matter.updated_at)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Description */}
-            {matter.description && (
-              <div className="rounded-xl border bg-white p-6">
-                <h3 className="text-base font-semibold mb-3">Descripcion</h3>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {matter.description}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Timeline */}
-          <div className="lg:col-span-2">
-            <div className="rounded-xl border bg-white p-6">
-              <h3 className="text-base font-semibold mb-4">Historial</h3>
-              <Timeline events={matter.timeline || []} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab: Plazos */}
-      {activeTab === "deadlines" && (
-        <div className="rounded-xl border bg-white">
-          {(!matter.deadlines || matter.deadlines.length === 0) ? (
-            <EmptyState
-              icon={CalendarClock}
-              title="Sin plazos"
-              description="No hay plazos registrados para este caso."
-            />
-          ) : (
-            <div className="divide-y">
-              {matter.deadlines.map((deadline) => (
-                <div
-                  key={deadline.id}
+  // ---- Info items ----
+  const infoItems: Array<{ label: string; value: string | React.ReactNode }> = [
+    { label: "Cliente", value: matter.client_name },
+    ...(matter.court
+      ? [{ label: "Tribunal", value: matter.court }]
+      : []),
+    ...(matter.rol
+      ? [{ label: "ROL", value: matter.rol }]
+      : []),
+    {
+      label: "Tipo",
+      value: MATTER_TYPE_LABELS[matter.type] || matter.type,
+    },
+    ...(matter.next_hearing_date
+      ? [
+          {
+            label: "Proxima Audiencia",
+            value: (
+              <span>
+                {formatDate(matter.next_hearing_date)}{" "}
+                <span
                   className={cn(
-                    "flex items-center justify-between p-4",
-                    deadline.completed && "opacity-60"
+                    "text-xs font-semibold",
+                    nextHearingText?.startsWith("Vencido")
+                      ? "text-red-600"
+                      : "text-green-700"
                   )}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      {deadline.completed && (
-                        <CheckSquare className="h-4 w-4 text-green-500 flex-shrink-0" />
-                      )}
-                      <p className={cn(
-                        "text-sm font-medium truncate",
-                        deadline.completed && "line-through"
-                      )}>
-                        {deadline.title}
-                      </p>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Vence: {formatDate(deadline.due_date)}
-                    </p>
-                  </div>
-                  <StatusBadge
-                    status={deadline.severity}
-                    label={DEADLINE_SEVERITY_LABELS[deadline.severity] || deadline.severity}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+                  ({nextHearingText})
+                </span>
+              </span>
+            ),
+          },
+        ]
+      : []),
+    ...(lastMovementText
+      ? [
+          {
+            label: "Ultimo Movimiento",
+            value: lastMovementText,
+          },
+        ]
+      : []),
+    ...(matter.assigned_to_name
+      ? [{ label: "Asignado a", value: matter.assigned_to_name }]
+      : []),
+    { label: "Creado", value: formatDate(matter.created_at) },
+  ];
 
-      {/* Tab: Gestiones */}
-      {activeTab === "gestiones" && (
-        <div className="rounded-xl border bg-white">
-          {(!matter.gestiones || matter.gestiones.length === 0) ? (
-            <EmptyState
-              icon={ClipboardList}
-              title="Sin gestiones"
-              description="No hay gestiones registradas para este caso."
-            />
-          ) : (
-            <div className="divide-y">
-              {matter.gestiones.map((gestion) => (
-                <div key={gestion.id} className="p-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-medium">{gestion.title}</p>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDate(gestion.date)}
-                    </span>
+  // ---- Timeline node ----
+  const timelineNode =
+    matter.timeline && matter.timeline.length > 0 ? (
+      <div className="space-y-3">
+        {matter.timeline.map((event) => (
+          <div
+            key={event.id}
+            className="flex gap-3 text-sm"
+          >
+            <div className="flex flex-col items-center">
+              <div
+                className={cn(
+                  "h-2.5 w-2.5 rounded-full mt-1.5",
+                  event.type === "status_change"
+                    ? "bg-blue-500"
+                    : event.type === "communication"
+                    ? "bg-green-500"
+                    : event.type === "task"
+                    ? "bg-yellow-500"
+                    : "bg-gray-400"
+                )}
+              />
+              <div className="w-px flex-1 bg-gray-200" />
+            </div>
+            <div className="pb-4">
+              <p className="font-medium text-gray-900">{event.title}</p>
+              {event.description && (
+                <p className="text-gray-500 mt-0.5">{event.description}</p>
+              )}
+              <p className="text-xs text-gray-400 mt-1">
+                {formatDate(event.timestamp)}
+                {event.actor && ` · ${event.actor}`}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : undefined;
+
+  return (
+    <WizardDetail
+      backHref="/matters"
+      backLabel="Volver a Casos"
+      title={matter.title}
+      statusLabel={MATTER_STATUS_LABELS[matter.status] || matter.status}
+      statusKey={matter.status}
+      progress={progress}
+      processDefinition={processDef}
+      agentSuggestions={suggestions}
+      actionLabel={nextAction}
+      onAction={() => transitionMutation.mutate(matter.status)}
+      actionLoading={transitionMutation.isPending}
+      infoItems={infoItems}
+      timeline={timelineNode}
+    >
+      {/* ---- Tareas ---- */}
+      {matter.tasks && matter.tasks.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <h3 className="text-base font-semibold text-gray-900 mb-4">
+            Tareas
+          </h3>
+          <div className="space-y-2">
+            {matter.tasks.map((task) => (
+              <div
+                key={task.id}
+                className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {task.title}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
+                    {task.assigned_to_name && (
+                      <span>{task.assigned_to_name}</span>
+                    )}
+                    {task.due_date && (
+                      <>
+                        {task.assigned_to_name && <span>·</span>}
+                        <span>Vence: {formatDate(task.due_date)}</span>
+                      </>
+                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground capitalize">{gestion.gestion_type}</p>
-                  {gestion.result && (
-                    <p className="mt-2 text-sm text-muted-foreground">{gestion.result}</p>
+                </div>
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                    TASK_STATUS_STYLES[task.status] || "bg-gray-100 text-gray-800"
                   )}
-                </div>
-              ))}
-            </div>
-          )}
+                >
+                  {TASK_STATUS_LABELS[task.status] || task.status}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Tab: Documentos */}
-      {activeTab === "documents" && (
-        <div className="rounded-xl border bg-white">
-          {(!matter.documents || matter.documents.length === 0) ? (
-            <EmptyState
-              icon={FolderOpen}
-              title="Sin documentos"
-              description="No hay documentos asociados a este caso."
-            />
-          ) : (
-            <div className="divide-y">
-              {matter.documents.map((doc) => (
-                <div key={doc.id} className="flex items-center gap-3 p-4">
-                  <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{doc.filename}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {doc.doc_type || "Documento"} · {formatDate(doc.uploaded_at)}
-                    </p>
-                  </div>
+      {/* ---- Documentos ---- */}
+      {matter.documents && matter.documents.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <h3 className="text-base font-semibold text-gray-900 mb-4">
+            Documentos
+          </h3>
+          <div className="space-y-2">
+            {matter.documents.map((doc) => (
+              <div
+                key={doc.id}
+                className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {doc.filename}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {doc.doc_type || "Documento"} · {formatDate(doc.uploaded_at)}
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
-
-      {/* Tab: Tareas */}
-      {activeTab === "tasks" && (
-        <div className="rounded-xl border bg-white">
-          {(!matter.tasks || matter.tasks.length === 0) ? (
-            <EmptyState
-              icon={CheckSquare}
-              title="Sin tareas"
-              description="No hay tareas asignadas a este caso."
-            />
-          ) : (
-            <div className="divide-y">
-              {matter.tasks.map((task) => (
-                <div key={task.id} className="flex items-center justify-between p-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{task.title}</p>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                      {task.assigned_to_name && <span>{task.assigned_to_name}</span>}
-                      {task.due_date && (
-                        <>
-                          {task.assigned_to_name && <span>·</span>}
-                          <span>Vence: {formatDate(task.due_date)}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <StatusBadge
-                    status={task.status}
-                    label={TASK_STATUS_LABELS[task.status] || task.status}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab: Comunicaciones */}
-      {activeTab === "communications" && (
-        <div className="rounded-xl border bg-white">
-          {(!matter.communications || matter.communications.length === 0) ? (
-            <EmptyState
-              icon={MessageSquare}
-              title="Sin comunicaciones"
-              description="No hay comunicaciones registradas para este caso."
-            />
-          ) : (
-            <div className="divide-y">
-              {matter.communications.map((comm) => (
-                <div key={comm.id} className="p-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                        comm.direction === "inbound"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-green-100 text-green-800"
-                      )}>
-                        {comm.direction === "inbound" ? "Recibido" : "Enviado"}
-                      </span>
-                      <span className="text-xs text-muted-foreground capitalize">{comm.channel}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDate(comm.sent_at)}
-                    </span>
-                  </div>
-                  {comm.subject && (
-                    <p className="text-sm font-medium">{comm.subject}</p>
-                  )}
-                  {comm.snippet && (
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                      {comm.snippet}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    </WizardDetail>
   );
 }

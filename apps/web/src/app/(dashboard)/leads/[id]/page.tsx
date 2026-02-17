@@ -1,102 +1,102 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { LEAD_STATUS_LABELS, LEAD_SOURCE_LABELS } from "@/lib/constants";
-import { StatusBadge } from "@/components/shared/status-badge";
-import { Timeline } from "@/components/shared/timeline";
-import { WorkflowActions } from "@/components/shared/workflow-actions";
+import { WizardDetail } from "@/components/shared/wizard-detail";
 import {
-  ArrowLeft,
-  Loader2,
-  AlertCircle,
-  Phone,
-  Mail,
-  Calendar,
-  User,
-  Tag,
-  Clock,
-  FileText,
-} from "lucide-react";
+  getProcessProgress,
+  getAgentSuggestions,
+  getNextActionLabel,
+} from "@/lib/process-status-map";
+import type { ProcessProgress } from "@/lib/process-status-map";
+import { ALL_PROCESSES } from "@/lib/process-definitions";
+import { Loader2, AlertCircle } from "lucide-react";
 
-interface Lead {
+/* ------------------------------------------------------------------ */
+/* TYPES                                                               */
+/* ------------------------------------------------------------------ */
+
+interface LeadDetail {
   id: number;
   full_name: string;
   email?: string;
   phone?: string;
+  company?: string;
   source: string;
   status: string;
   notes?: string;
   assigned_to_name?: string;
   created_at: string;
-  updated_at: string;
-  timeline: Array<{
+  process_id: string;
+  interactions: Array<{
     id: number;
-    title: string;
-    description?: string;
-    timestamp: string;
-    type?: "status_change" | "communication" | "task" | "audit" | "note";
-    actor?: string;
+    type: string;
+    notes: string;
+    created_by_name: string;
+    created_at: string;
   }>;
 }
 
-function getWorkflowActions(status: string) {
-  const actions: Array<{
-    label: string;
-    action: string;
-    variant?: "default" | "primary" | "destructive";
-  }> = [];
+/* ------------------------------------------------------------------ */
+/* STATUS TRANSITION MAP                                               */
+/* ------------------------------------------------------------------ */
 
-  switch (status) {
-    case "new":
-      actions.push({ label: "Contactar", action: "contacted", variant: "primary" });
-      actions.push({ label: "Marcar como Perdido", action: "lost", variant: "destructive" });
-      break;
-    case "contacted":
-      actions.push({ label: "Agendar Reunion", action: "meeting_scheduled", variant: "primary" });
-      actions.push({ label: "Marcar como Perdido", action: "lost", variant: "destructive" });
-      break;
-    case "meeting_scheduled":
-      actions.push({ label: "Enviar Propuesta", action: "proposal_sent", variant: "primary" });
-      actions.push({ label: "Marcar como Perdido", action: "lost", variant: "destructive" });
-      break;
-    case "proposal_sent":
-      actions.push({ label: "Convertir a Cliente", action: "won", variant: "primary" });
-      actions.push({ label: "Marcar como Perdido", action: "lost", variant: "destructive" });
-      break;
-    default:
-      break;
-  }
-
-  return actions;
+function getNextStatus(current: string): string | null {
+  const transitions: Record<string, string> = {
+    new: "contacted",
+    contacted: "meeting_scheduled",
+    meeting_scheduled: "proposal_sent",
+    proposal_sent: "won",
+  };
+  return transitions[current] ?? null;
 }
 
+/* ------------------------------------------------------------------ */
+/* INTERACTION TYPE LABELS                                             */
+/* ------------------------------------------------------------------ */
+
+const INTERACTION_TYPE_LABELS: Record<string, string> = {
+  call: "Llamada",
+  email: "Correo",
+  meeting: "Reunión",
+  note: "Nota",
+  status_change: "Cambio de estado",
+  whatsapp: "WhatsApp",
+};
+
+/* ------------------------------------------------------------------ */
+/* PAGE                                                                */
+/* ------------------------------------------------------------------ */
+
 export default function LeadDetailPage() {
-  const router = useRouter();
   const params = useParams();
   const queryClient = useQueryClient();
   const leadId = params.id as string;
 
-  const { data: lead, isLoading, error } = useQuery<Lead>({
+  /* ---- Fetch lead ---- */
+  const {
+    data: lead,
+    isLoading,
+    error,
+  } = useQuery<LeadDetail>({
     queryKey: ["lead", leadId],
     queryFn: () => api.get(`/leads/${leadId}`),
   });
 
+  /* ---- Status transition mutation ---- */
   const transitionMutation = useMutation({
-    mutationFn: (action: string) =>
-      api.post(`/leads/${leadId}/transition`, { action }),
+    mutationFn: (newStatus: string) =>
+      api.patch(`/leads/${leadId}`, { status: newStatus }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead", leadId] });
       queryClient.invalidateQueries({ queryKey: ["leads"] });
     },
   });
 
-  const handleAction = (action: string) => {
-    transitionMutation.mutate(action);
-  };
-
+  /* ---- Loading state ---- */
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -105,6 +105,7 @@ export default function LeadDetailPage() {
     );
   }
 
+  /* ---- Error state ---- */
   if (error || !lead) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -113,142 +114,114 @@ export default function LeadDetailPage() {
         <p className="text-sm text-muted-foreground mt-1">
           No se encontro el lead solicitado.
         </p>
-        <button
-          onClick={() => router.push("/leads")}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver a Leads
-        </button>
       </div>
     );
   }
 
-  const workflowActions = getWorkflowActions(lead.status);
+  /* ---- Derive process data ---- */
+  const processId = lead.process_id || "recepcion-visita";
+  const progress: ProcessProgress = getProcessProgress(processId, lead.status);
+  const agentSuggestions = getAgentSuggestions(processId, lead.status, lead);
+  const actionLabel = getNextActionLabel(processId, lead.status);
+  const processDefinition = ALL_PROCESSES[lead.process_id] ?? undefined;
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push("/leads")}
-          className="rounded-lg border p-2 hover:bg-muted"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{lead.full_name}</h1>
-            <StatusBadge
-              status={lead.status}
-              label={LEAD_STATUS_LABELS[lead.status] || lead.status}
-            />
-          </div>
-          <p className="text-muted-foreground">
-            Lead #{lead.id} · Creado {formatDate(lead.created_at)}
-          </p>
-        </div>
-      </div>
+  const nextStatus = getNextStatus(lead.status);
 
-      {/* Workflow Actions */}
-      {workflowActions.length > 0 && (
-        <div className="rounded-xl border bg-white p-4">
-          <p className="text-sm font-medium text-muted-foreground mb-3">Acciones disponibles</p>
-          <WorkflowActions
-            actions={workflowActions}
-            onAction={handleAction}
-          />
-          {transitionMutation.isPending && (
-            <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Procesando...
+  const handleAction = () => {
+    if (nextStatus) {
+      transitionMutation.mutate(nextStatus);
+    }
+  };
+
+  /* ---- Info items ---- */
+  const infoItems: Array<{ label: string; value: string | React.ReactNode }> = [
+    {
+      label: "Fuente",
+      value: LEAD_SOURCE_LABELS[lead.source] || lead.source,
+    },
+  ];
+
+  if (lead.phone) {
+    infoItems.push({ label: "Telefono", value: lead.phone });
+  }
+  if (lead.email) {
+    infoItems.push({ label: "Email", value: lead.email });
+  }
+  if (lead.company) {
+    infoItems.push({ label: "Empresa", value: lead.company });
+  }
+  if (lead.assigned_to_name) {
+    infoItems.push({ label: "Asignado a", value: lead.assigned_to_name });
+  }
+  infoItems.push({ label: "Creado", value: formatDate(lead.created_at) });
+
+  /* ---- Timeline (interactions) ---- */
+  const timeline =
+    lead.interactions && lead.interactions.length > 0 ? (
+      <div className="space-y-4">
+        {lead.interactions.map((interaction) => (
+          <div
+            key={interaction.id}
+            className="flex items-start gap-3 border-l-2 border-gray-200 pl-4"
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-gray-500 uppercase">
+                  {INTERACTION_TYPE_LABELS[interaction.type] || interaction.type}
+                </span>
+                <span className="text-[10px] text-gray-400">
+                  {formatDate(interaction.created_at)}
+                </span>
+              </div>
+              <p className="text-sm text-gray-700 mt-0.5">{interaction.notes}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                {interaction.created_by_name}
+              </p>
             </div>
-          )}
-          {transitionMutation.isError && (
-            <p className="mt-2 text-sm text-destructive">
-              Error al realizar la accion. Intente nuevamente.
-            </p>
-          )}
+          </div>
+        ))}
+      </div>
+    ) : (
+      <p className="text-sm text-gray-400">Sin interacciones registradas.</p>
+    );
+
+  /* ---- Render ---- */
+  return (
+    <WizardDetail
+      backHref="/leads"
+      backLabel="Leads"
+      title={lead.full_name}
+      statusLabel={LEAD_STATUS_LABELS[lead.status] || lead.status}
+      statusKey={lead.status}
+      progress={progress}
+      processDefinition={processDefinition}
+      actionLabel={nextStatus ? actionLabel : undefined}
+      onAction={nextStatus ? handleAction : undefined}
+      actionDisabled={transitionMutation.isPending}
+      actionLoading={transitionMutation.isPending}
+      agentSuggestions={agentSuggestions}
+      infoItems={infoItems}
+      timeline={timeline}
+    >
+      {/* Notes section */}
+      {lead.notes && (
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
+            Notas
+          </h4>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{lead.notes}</p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Lead Info Card */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="rounded-xl border bg-white p-6">
-            <h3 className="text-base font-semibold mb-4">Informacion del Lead</h3>
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <User className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Nombre</p>
-                  <p className="text-sm font-medium">{lead.full_name}</p>
-                </div>
-              </div>
-              {lead.email && (
-                <div className="flex items-start gap-3">
-                  <Mail className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Email</p>
-                    <p className="text-sm">{lead.email}</p>
-                  </div>
-                </div>
-              )}
-              {lead.phone && (
-                <div className="flex items-start gap-3">
-                  <Phone className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Telefono</p>
-                    <p className="text-sm">{lead.phone}</p>
-                  </div>
-                </div>
-              )}
-              <div className="flex items-start gap-3">
-                <Tag className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Fuente</p>
-                  <p className="text-sm">{LEAD_SOURCE_LABELS[lead.source] || lead.source}</p>
-                </div>
-              </div>
-              {lead.assigned_to_name && (
-                <div className="flex items-start gap-3">
-                  <User className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Asignado a</p>
-                    <p className="text-sm">{lead.assigned_to_name}</p>
-                  </div>
-                </div>
-              )}
-              <div className="flex items-start gap-3">
-                <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Ultima actualizacion</p>
-                  <p className="text-sm">{formatDateTime(lead.updated_at)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Notes */}
-          {lead.notes && (
-            <div className="rounded-xl border bg-white p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-base font-semibold">Notas</h3>
-              </div>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{lead.notes}</p>
-            </div>
-          )}
+      {/* Mutation error feedback */}
+      {transitionMutation.isError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+          <p className="text-sm text-red-700">
+            Error al realizar la accion. Intente nuevamente.
+          </p>
         </div>
-
-        {/* Timeline */}
-        <div className="lg:col-span-2">
-          <div className="rounded-xl border bg-white p-6">
-            <h3 className="text-base font-semibold mb-4">Historial</h3>
-            <Timeline events={lead.timeline || []} />
-          </div>
-        </div>
-      </div>
-    </div>
+      )}
+    </WizardDetail>
   );
 }
