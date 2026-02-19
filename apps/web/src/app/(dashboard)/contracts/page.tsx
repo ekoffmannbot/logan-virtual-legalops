@@ -1,35 +1,20 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
-import { CONTRACT_STATUS_LABELS } from "@/lib/constants";
-import { AgentStatusBar } from "@/components/shared/agent-message";
-import { ItemCard } from "@/components/shared/item-card";
-import { UrgencySection } from "@/components/shared/urgency-section";
-import {
-  getProcessProgress,
-  computeUrgency,
-  getNextActionLabel,
-} from "@/lib/process-status-map";
-import type { UrgencyLevel } from "@/lib/process-status-map";
-import { EmptyState } from "@/components/shared/empty-state";
-import { ProcessFlow } from "@/components/shared/process-flow";
+import { KanbanBoard } from "@/components/shared/kanban-board";
+import type { KanbanColumn } from "@/components/shared/kanban-board";
+import { Drawer, useDrawer } from "@/components/layout/drawer";
+import { PizzaTracker } from "@/components/shared/pizza-tracker";
+import { Loader2, AlertCircle, FileSignature } from "lucide-react";
+import { getProcessProgress } from "@/lib/process-status-map";
 import { contratoMandatoProcess } from "@/lib/process-definitions";
-import {
-  FileSignature,
-  Search,
-  Loader2,
-  Eye,
-  EyeOff,
-  X,
-  Calendar,
-  DollarSign,
-} from "lucide-react";
+import { formatDate, formatCurrency } from "@/lib/utils";
+import { CONTRACT_STATUS_LABELS } from "@/lib/constants";
 
 /* ------------------------------------------------------------------ */
-/* TYPES                                                               */
+/* TIPOS                                                               */
 /* ------------------------------------------------------------------ */
 
 interface Contract {
@@ -42,124 +27,177 @@ interface Contract {
   end_date: string | null;
   monthly_fee: number | null;
   currency: string;
-  created_at: string;
   process_id: string;
 }
 
 /* ------------------------------------------------------------------ */
-/* PROCESS-STEP GROUPING                                               */
+/* HELPERS                                                             */
 /* ------------------------------------------------------------------ */
 
-interface ProcessGroup {
-  key: string;
-  title: string;
-  urgency: UrgencyLevel;
-  statuses: string[];
+const TYPE_LABELS: Record<string, string> = {
+  honorarios: "Honorarios",
+  convenio: "Convenio",
+  poder: "Poder",
+};
+
+const TYPE_BADGE_COLORS: Record<string, string> = {
+  honorarios: "bg-blue-100 text-blue-800",
+  convenio: "bg-purple-100 text-purple-800",
+  poder: "bg-amber-100 text-amber-800",
+};
+
+/** Formato chileno: $1.800.000 */
+function formatCLP(amount: number | null | undefined): string {
+  if (amount == null) return "";
+  return "$" + amount.toLocaleString("es-CL");
 }
 
-const PROCESS_GROUPS: ProcessGroup[] = [
-  {
-    key: "datos-pendientes",
-    title: "Datos Pendientes",
-    urgency: "urgent",
-    statuses: ["pending_data"],
-  },
-  {
-    key: "en-redaccion",
-    title: "En Redaccion",
-    urgency: "warning",
-    statuses: ["drafting", "changes_requested"],
-  },
-  {
-    key: "revision",
-    title: "Revision",
-    urgency: "warning",
-    statuses: ["pending_review"],
-  },
-  {
-    key: "aprobado-notaria",
-    title: "Aprobado / En Notaria",
-    urgency: "normal",
-    statuses: ["approved", "uploaded_for_signing"],
-  },
-  {
-    key: "firmado-completo",
-    title: "Firmado / Completo",
-    urgency: "normal",
-    statuses: ["signed", "scanned_uploaded", "complete"],
-  },
-];
+/**
+ * Construye los pasos para el PizzaTracker a partir de la definicion
+ * del proceso, filtrando solo los pasos de tipo task/subprocess.
+ */
+function buildPizzaSteps(processId: string, status: string) {
+  const process = contratoMandatoProcess;
+  const taskSteps = process.steps.filter(
+    (s) => s.type !== "start" && s.type !== "end" && s.type !== "decision"
+  );
+
+  const progress = getProcessProgress(
+    processId || "contrato-mandato",
+    status
+  );
+
+  // Buscar en que indice estamos dentro de los task steps
+  const allSteps = process.steps;
+  const currentStepId =
+    allSteps[progress.current]?.id || allSteps[0]?.id;
+
+  let currentIndex = taskSteps.findIndex((s) => s.id === currentStepId);
+  if (currentIndex === -1) {
+    // Fallback: buscar el paso mas cercano anterior
+    const currentAllIndex = allSteps.findIndex((s) => s.id === currentStepId);
+    for (let i = currentAllIndex; i >= 0; i--) {
+      const idx = taskSteps.findIndex((s) => s.id === allSteps[i].id);
+      if (idx !== -1) {
+        currentIndex = idx;
+        break;
+      }
+    }
+    if (currentIndex === -1) currentIndex = 0;
+  }
+
+  const steps = taskSteps.map((s) => ({
+    id: s.id,
+    label: s.label,
+    description: s.description,
+  }));
+
+  return { steps, currentIndex, progress };
+}
 
 /* ------------------------------------------------------------------ */
-/* PAGE                                                                */
+/* PAGINA                                                              */
 /* ------------------------------------------------------------------ */
 
 export default function ContractsPage() {
-  // UI state
-  const [showFlow, setShowFlow] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // Data fetching
-  const { data: contracts = [], isLoading } = useQuery<Contract[]>({
+  const { data: contracts = [], isLoading, isError } = useQuery<Contract[]>({
     queryKey: ["contracts"],
     queryFn: () => api.get("/contracts"),
   });
 
-  // Search filter
-  const filteredContracts = useMemo(() => {
-    if (!searchQuery.trim()) return contracts;
-    const q = searchQuery.toLowerCase();
-    return contracts.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        c.client_name.toLowerCase().includes(q) ||
-        c.type.toLowerCase().includes(q)
-    );
-  }, [contracts, searchQuery]);
+  const { isOpen, drawerTitle, drawerContent, openDrawer, closeDrawer } =
+    useDrawer();
 
-  // Group contracts by process step
-  const groupedContracts = useMemo(() => {
-    return PROCESS_GROUPS.map((group) => ({
-      ...group,
-      items: filteredContracts.filter((c) =>
-        group.statuses.includes(c.status)
-      ),
-    }));
-  }, [filteredContracts]);
+  // ----- Transformar contratos en columnas Kanban -----
+  const columns: KanbanColumn[] = useMemo(() => {
+    const base: KanbanColumn[] = [
+      { id: "pending_data", title: "Datos Pendientes", color: "border-t-orange-500", cards: [] },
+      { id: "drafting", title: "En Redaccion", color: "border-t-blue-500", cards: [] },
+      { id: "pending_review", title: "Revision", color: "border-t-yellow-500", cards: [] },
+      { id: "approved", title: "Aprobado", color: "border-t-green-500", cards: [] },
+      { id: "signed", title: "Firmado", color: "border-t-emerald-500", cards: [] },
+    ];
 
-  // Agent status counts
-  const agentCounts = useMemo(() => {
-    const abogadoStatuses = new Set([
-      "pending_review",
-      "changes_requested",
-    ]);
-    const adminStatuses = new Set([
-      "pending_data",
-      "drafting",
-      "approved",
-      "signed",
-      "scanned_uploaded",
-    ]);
-    const notariaStatuses = new Set(["uploaded_for_signing"]);
+    const colMap = new Map(base.map((c) => [c.id, c]));
 
-    let abogado = 0;
-    let admin = 0;
-    let notaria = 0;
+    for (const contract of contracts) {
+      const col = colMap.get(contract.status);
+      if (!col) continue;
 
-    for (const c of contracts) {
-      if (abogadoStatuses.has(c.status)) abogado++;
-      if (adminStatuses.has(c.status)) admin++;
-      if (notariaStatuses.has(c.status)) notaria++;
+      col.cards.push({
+        id: String(contract.id),
+        title: contract.title,
+        subtitle: contract.client_name,
+        amount: contract.monthly_fee ? formatCLP(contract.monthly_fee) : undefined,
+        badge: TYPE_LABELS[contract.type] || contract.type,
+        badgeColor: TYPE_BADGE_COLORS[contract.type] || "bg-gray-100 text-gray-700",
+      });
     }
 
-    return [
-      { name: "Abogado", count: abogado, color: "green" },
-      { name: "Administracion", count: admin, color: "amber" },
-      { name: "Notaria", count: notaria, color: "purple" },
-    ];
+    return base;
   }, [contracts]);
 
-  // Loading state
+  // ----- Abrir Drawer al hacer click en una tarjeta -----
+  function handleCardClick(cardId: string) {
+    const contract = contracts.find((c) => String(c.id) === cardId);
+    if (!contract) return;
+
+    const { steps, currentIndex, progress } = buildPizzaSteps(
+      contract.process_id,
+      contract.status
+    );
+
+    const statusLabel =
+      CONTRACT_STATUS_LABELS[contract.status] || contract.status;
+
+    openDrawer(
+      contract.title,
+      <div className="space-y-6">
+        {/* Progreso visual */}
+        <div>
+          <p className="text-[14px] font-semibold text-gray-700 mb-1">
+            Progreso del contrato
+          </p>
+          <p className="text-[13px] text-gray-500 mb-4">
+            Paso {currentIndex + 1} de {steps.length}: {progress.stepLabel}
+          </p>
+          <PizzaTracker
+            steps={steps}
+            currentStepIndex={currentIndex}
+          />
+        </div>
+
+        {/* Detalles del contrato */}
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+          <h3 className="text-[15px] font-semibold text-gray-800">
+            Detalles
+          </h3>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Detail label="Cliente" value={contract.client_name} />
+            <Detail label="Tipo" value={TYPE_LABELS[contract.type] || contract.type} />
+            <Detail label="Estado" value={statusLabel} />
+            <Detail
+              label="Inicio"
+              value={contract.start_date ? formatDate(contract.start_date) : "-"}
+            />
+            <Detail
+              label="Termino"
+              value={contract.end_date ? formatDate(contract.end_date) : "Indefinido"}
+            />
+            {contract.monthly_fee != null && (
+              <Detail
+                label="Honorario mensual"
+                value={formatCurrency(contract.monthly_fee, contract.currency)}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ----- Estados de carga / error -----
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -168,169 +206,48 @@ export default function ContractsPage() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-2 text-red-600">
+        <AlertCircle className="h-8 w-8" />
+        <p className="text-[14px]">Error al cargar contratos</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* ---- HEADER ---- */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Contratos</h1>
-          <p className="text-muted-foreground">
-            Gestion de contratos y mandatos judiciales
-          </p>
-        </div>
-        <button
-          onClick={() => setShowFlow((prev) => !prev)}
-          className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-muted transition-colors"
-        >
-          {showFlow ? (
-            <EyeOff className="h-4 w-4" />
-          ) : (
-            <Eye className="h-4 w-4" />
-          )}
-          Ver Flujo
-        </button>
+      <div className="flex items-center gap-3">
+        <FileSignature className="h-6 w-6 text-gray-700" />
+        <h1 className="text-2xl font-bold text-gray-900">Contratos</h1>
+        <span className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-gray-200 px-2 text-[13px] font-semibold text-gray-600">
+          {contracts.length}
+        </span>
       </div>
 
-      {/* ---- AGENT STATUS BAR ---- */}
-      <AgentStatusBar agents={agentCounts} />
+      {/* ---- KANBAN ---- */}
+      <KanbanBoard columns={columns} onCardClick={handleCardClick} />
 
-      {/* ---- SEARCH INPUT ---- */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-lg border pl-10 pr-4 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-          placeholder="Buscar por titulo, cliente o tipo..."
-        />
-      </div>
-
-      {/* ---- PROCESS FLOW DIALOG ---- */}
-      {showFlow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="fixed inset-0 bg-black/50"
-            onClick={() => setShowFlow(false)}
-          />
-          <div className="relative z-50 w-full max-w-5xl max-h-[85vh] overflow-y-auto rounded-xl border bg-white p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">
-                Flujo de Contrato y Mandato
-              </h2>
-              <button
-                onClick={() => setShowFlow(false)}
-                className="rounded-lg p-1 hover:bg-muted"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <ProcessFlow process={contratoMandatoProcess} />
-          </div>
-        </div>
-      )}
-
-      {/* ---- CONTENT ---- */}
-      {filteredContracts.length === 0 ? (
-        <EmptyState
-          icon={FileSignature}
-          title="No hay contratos"
-          description={
-            searchQuery
-              ? "No se encontraron resultados para tu busqueda."
-              : "Aun no se han registrado contratos en el sistema."
-          }
-        />
-      ) : (
-        <div className="space-y-4">
-          {groupedContracts.map((group) => {
-            if (group.items.length === 0) return null;
-
-            return (
-              <UrgencySection
-                key={group.key}
-                title={group.title}
-                urgency={group.urgency}
-                count={group.items.length}
-                defaultOpen={group.urgency !== "normal" || group.items.length > 0}
-              >
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
-                  {group.items.map((contract) => (
-                    <ContractCard key={contract.id} contract={contract} />
-                  ))}
-                </div>
-              </UrgencySection>
-            );
-          })}
-        </div>
-      )}
+      {/* ---- DRAWER ---- */}
+      <Drawer open={isOpen} onClose={closeDrawer} title={drawerTitle}>
+        {drawerContent}
+      </Drawer>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* CONTRACT CARD                                                       */
+/* COMPONENTE AUXILIAR                                                  */
 /* ------------------------------------------------------------------ */
 
-function ContractCard({ contract }: { contract: Contract }) {
-  const urgency = computeUrgency(contract);
-  const progress = getProcessProgress(
-    contract.process_id || "contrato-mandato",
-    contract.status
-  );
-  const actionLabel = getNextActionLabel(
-    contract.process_id || "contrato-mandato",
-    contract.status
-  );
-
-  const statusLabel =
-    CONTRACT_STATUS_LABELS[contract.status] || contract.status;
-
-  const subtitle = [contract.type, contract.client_name]
-    .filter(Boolean)
-    .join(" \u00B7 ");
-
-  const meta: Array<{ icon?: typeof Calendar; label: string }> = [];
-  if (contract.start_date) {
-    meta.push({ icon: Calendar, label: formatDate(contract.start_date) });
-  }
-  if (contract.monthly_fee != null) {
-    meta.push({
-      icon: DollarSign,
-      label: formatCurrency(contract.monthly_fee, contract.currency),
-    });
-  }
-
+function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <ItemCard
-      title={contract.title}
-      subtitle={subtitle}
-      statusLabel={statusLabel}
-      statusKey={contract.status}
-      urgency={urgency}
-      progress={{
-        current: progress.current,
-        total: progress.total,
-        percentage: progress.percentage,
-        stepLabel: progress.stepLabel,
-        agentName: progress.agentName,
-        agentColor: progress.agentColor,
-      }}
-      actionLabel={actionLabel}
-      actionHref={`/contracts/${contract.id}`}
-      meta={meta}
-    >
-      {/* Monthly fee highlight */}
-      {contract.monthly_fee != null && (
-        <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">
-            Honorario mensual
-          </span>
-          <span className="text-sm font-bold text-gray-900">
-            {formatCurrency(contract.monthly_fee, contract.currency)}
-          </span>
-        </div>
-      )}
-    </ItemCard>
+    <div>
+      <p className="text-[12px] font-medium text-gray-500 uppercase tracking-wide">
+        {label}
+      </p>
+      <p className="text-[14px] text-gray-900 mt-0.5">{value}</p>
+    </div>
   );
 }

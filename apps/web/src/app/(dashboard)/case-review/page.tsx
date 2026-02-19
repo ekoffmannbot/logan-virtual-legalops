@@ -1,32 +1,25 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Scale,
-  Search,
-  ChevronDown,
-  ChevronUp,
-  FileText,
-  CheckCircle2,
-  MinusCircle,
-  Calendar,
-  Building2,
-  Hash,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
-import { cn, formatDate } from "@/lib/utils";
-import { EmptyState } from "@/components/shared/empty-state";
-import { ProcessFlow } from "@/components/shared/process-flow";
-import { revisionCausasProcess } from "@/lib/process-definitions";
-import { AgentStatusBar } from "@/components/shared/agent-message";
-import { computeUrgency } from "@/lib/process-status-map";
+import { SequentialWizard } from "@/components/shared/sequential-wizard";
+import { PizzaTracker } from "@/components/shared/pizza-tracker";
+import { ApprovePanel } from "@/components/shared/approve-panel";
+import { getProcessProgress } from "@/lib/process-status-map";
+import {
+  ClipboardCheck,
+  Loader2,
+  AlertTriangle,
+  Scale,
+  Calendar,
+  User,
+  CheckCircle,
+  FileText,
+} from "lucide-react";
 
 /* ------------------------------------------------------------------ */
-/* Types                                                               */
+/* Tipos                                                               */
 /* ------------------------------------------------------------------ */
 
 interface Matter {
@@ -36,473 +29,352 @@ interface Matter {
   rol_number: string;
   client_name: string;
   status: string;
-  last_movement_at: string | null;
   assigned_to: string;
+  last_movement_at: string | null;
 }
 
-interface MovementForm {
-  description: string;
-  has_deadline: boolean;
-  deadline_date?: string;
-  complexity: "low" | "medium" | "high";
-}
+type ReviewStatus = "approved" | "modified" | "rejected";
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-/** Days elapsed since a given ISO date string. Returns Infinity when null. */
-function daysSince(dateStr: string | null): number {
-  if (!dateStr) return Infinity;
-  const ms = Date.now() - new Date(dateStr).getTime();
-  return ms / (1000 * 60 * 60 * 24);
+/** Formato relativo en espanol. */
+function formatRelativeTime(dateStr: string | null): string {
+  if (!dateStr) return "Sin actividad registrada";
+
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+
+  if (diffMinutes < 1) return "Hace un momento";
+  if (diffMinutes < 60) return `Hace ${diffMinutes} minuto${diffMinutes !== 1 ? "s" : ""}`;
+  if (diffHours < 24) return `Hace ${diffHours} hora${diffHours !== 1 ? "s" : ""}`;
+  if (diffDays < 7) return `Hace ${diffDays} dia${diffDays !== 1 ? "s" : ""}`;
+  if (diffWeeks < 5) return `Hace ${diffWeeks} semana${diffWeeks !== 1 ? "s" : ""}`;
+  return `Hace ${diffMonths} mes${diffMonths !== 1 ? "es" : ""}`;
 }
 
-/** Border colour class based on age of last movement. */
-function movementBorderColor(lastMovementAt: string | null): string {
-  const days = daysSince(lastMovementAt);
-  if (days <= 3) return "border-green-400";
-  if (days <= 7) return "border-yellow-400";
-  return "border-red-400";
-}
+/** Genera texto de analisis del agente para una causa. */
+function generateAnalysis(matter: Matter): string {
+  const lastDate = matter.last_movement_at
+    ? new Date(matter.last_movement_at).toLocaleDateString("es-CL", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
+    : "fecha desconocida";
 
-/** Thin left-accent colour for the card strip. */
-function movementAccentColor(lastMovementAt: string | null): string {
-  const days = daysSince(lastMovementAt);
-  if (days <= 3) return "bg-green-400";
-  if (days <= 7) return "bg-yellow-400";
-  return "bg-red-400";
+  const daysSince = matter.last_movement_at
+    ? Math.floor(
+        (Date.now() - new Date(matter.last_movement_at).getTime()) /
+          (1000 * 60 * 60 * 24),
+      )
+    : null;
+
+  const alertNote =
+    daysSince !== null && daysSince > 14
+      ? `\n\nAlerta: Han pasado ${daysSince} dias sin movimiento. Se recomienda accion inmediata.`
+      : "";
+
+  return (
+    `Se reviso el expediente electronico de ${matter.title}. Sin movimientos nuevos desde el ${lastDate}.` +
+    `\n\nRecomendacion: Verificar estado en el sistema del Poder Judicial.` +
+    alertNote +
+    `\n\nTribunal: ${matter.court} | ROL: ${matter.rol_number}` +
+    `\nAsignado a: ${matter.assigned_to}`
+  );
 }
 
 /* ------------------------------------------------------------------ */
-/* Page Component                                                      */
+/* InfoRow                                                             */
+/* ------------------------------------------------------------------ */
+
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <Icon className="h-5 w-5 text-gray-400 flex-shrink-0" />
+      <div className="min-w-0">
+        <p className="text-gray-500 leading-tight" style={{ fontSize: "13px" }}>
+          {label}
+        </p>
+        <p className="font-medium text-gray-900 leading-tight truncate" style={{ fontSize: "14px" }}>
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Pagina                                                              */
 /* ------------------------------------------------------------------ */
 
 export default function CaseReviewPage() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [expandedMatter, setExpandedMatter] = useState<string | null>(null);
-  const [showProcessFlow, setShowProcessFlow] = useState(false);
-  const [movementForms, setMovementForms] = useState<
-    Record<string, MovementForm>
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [reviewStatuses, setReviewStatuses] = useState<
+    Record<string, ReviewStatus>
   >({});
+  const [completed, setCompleted] = useState(false);
 
-  /* ---- Data fetching ---- */
-
-  const { data: matters = [], isLoading } = useQuery({
+  /* ---- Fetch ---- */
+  const {
+    data: cases = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["case-review", "open-matters"],
     queryFn: () => api.get<Matter[]>("/case-review/open-matters"),
   });
 
-  /* ---- Mutations ---- */
+  /* ---- Acciones de revision ---- */
+  function handleAction(matterId: string, status: ReviewStatus) {
+    setReviewStatuses((prev) => ({ ...prev, [matterId]: status }));
 
-  const registerMovementMutation = useMutation({
-    mutationFn: ({
-      matterId,
-      data,
-    }: {
-      matterId: string;
-      data: MovementForm;
-    }) => api.post(`/case-review/${matterId}/movement`, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["case-review"] });
-      setExpandedMatter(null);
-      setMovementForms((prev) => {
-        const next = { ...prev };
-        delete next[variables.matterId];
-        return next;
+    // Auto-avanzar a la siguiente causa
+    setTimeout(() => {
+      setCurrentIndex((prev) => {
+        if (prev < cases.length - 1) return prev + 1;
+        return prev;
       });
-    },
-  });
+    }, 1000);
+  }
 
-  const noMovementMutation = useMutation({
-    mutationFn: (matterId: string) =>
-      api.post(`/case-review/${matterId}/no-movement`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["case-review"] });
-    },
-  });
+  /* ---- Finalizar ---- */
+  function handleComplete() {
+    setCompleted(true);
+  }
 
-  /* ---- Derived state ---- */
+  /* ---- Resumen ---- */
+  const summary = useMemo(() => {
+    const values = Object.values(reviewStatuses);
+    return {
+      approved: values.filter((s) => s === "approved").length,
+      modified: values.filter((s) => s === "modified").length,
+      rejected: values.filter((s) => s === "rejected").length,
+    };
+  }, [reviewStatuses]);
 
-  const filteredMatters = matters.filter(
-    (matter) =>
-      matter.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      matter.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      matter.rol_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      matter.court.toLowerCase().includes(searchTerm.toLowerCase())
+  /* ---- PizzaTracker steps ---- */
+  const trackerSteps = useMemo(
+    () =>
+      cases.map((matter, i) => ({
+        id: matter.id,
+        label: `Causa ${i + 1}`,
+        description:
+          matter.title.length > 30
+            ? matter.title.slice(0, 30) + "..."
+            : matter.title,
+      })),
+    [cases],
   );
 
-  /** Count how many matters have already been reviewed today (have a recent movement). */
-  const reviewedCount = useMemo(() => {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    return matters.filter((m) => {
-      if (!m.last_movement_at) return false;
-      return new Date(m.last_movement_at) >= todayStart;
-    }).length;
-  }, [matters]);
+  /* ---- Wizard items ---- */
+  const wizardItems = useMemo(
+    () =>
+      cases.map((matter) => ({
+        id: matter.id,
+        content: (
+          <div className="space-y-6">
+            {/* Encabezado de la causa */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2
+                className="font-bold text-gray-900"
+                style={{ fontSize: "20px" }}
+              >
+                {matter.title}
+              </h2>
 
-  /** Agent status counts. */
-  const agentCounts = useMemo(() => {
-    const abogadoSet = new Set<string>();
-    const procuradorSet = new Set<string>();
-    matters.forEach((m) => {
-      const role = m.assigned_to?.toLowerCase() ?? "";
-      if (role.includes("procurador")) {
-        procuradorSet.add(m.assigned_to);
-      } else {
-        abogadoSet.add(m.assigned_to);
-      }
-    });
-    return [
-      { name: "Abogado", count: abogadoSet.size, color: "blue" },
-      { name: "Procurador", count: procuradorSet.size, color: "green" },
-    ];
-  }, [matters]);
+              {/* Chips de tribunal y ROL */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full bg-purple-100 text-purple-700 px-3 py-1 font-medium"
+                  style={{ fontSize: "13px" }}
+                >
+                  <Scale className="h-3.5 w-3.5" />
+                  {matter.court}
+                </span>
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-700 px-3 py-1 font-medium"
+                  style={{ fontSize: "13px" }}
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  ROL {matter.rol_number}
+                </span>
+              </div>
 
-  /* ---- Form helpers ---- */
+              {/* Info rows */}
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <InfoRow
+                  icon={User}
+                  label="Cliente"
+                  value={matter.client_name}
+                />
+                <InfoRow
+                  icon={User}
+                  label="Abogado"
+                  value={matter.assigned_to}
+                />
+                <InfoRow
+                  icon={Calendar}
+                  label="Ultima actividad"
+                  value={formatRelativeTime(matter.last_movement_at)}
+                />
+              </div>
+            </div>
 
-  const getFormForMatter = (matterId: string): MovementForm => {
+            {/* Panel de analisis del agente */}
+            <ApprovePanel
+              agentName="Agente Revisor"
+              agentAction={`Reviso expediente de ${matter.title}`}
+              content={generateAnalysis(matter)}
+              onApprove={() => handleAction(matter.id, "approved")}
+              onModify={() => handleAction(matter.id, "modified")}
+              onReject={() => handleAction(matter.id, "rejected")}
+              status={reviewStatuses[matter.id] || "pending"}
+            />
+          </div>
+        ),
+      })),
+    [cases, reviewStatuses],
+  );
+
+  /* ---- Loading ---- */
+  if (isLoading) {
     return (
-      movementForms[matterId] || {
-        description: "",
-        has_deadline: false,
-        complexity: "low" as const,
-      }
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+        <p className="text-gray-500" style={{ fontSize: "14px" }}>
+          Cargando causas pendientes...
+        </p>
+      </div>
     );
-  };
+  }
 
-  const updateForm = (matterId: string, updates: Partial<MovementForm>) => {
-    setMovementForms((prev) => ({
-      ...prev,
-      [matterId]: { ...getFormForMatter(matterId), ...updates },
-    }));
-  };
+  /* ---- Error ---- */
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <AlertTriangle className="h-10 w-10 text-red-500" />
+        <p className="font-medium text-red-600" style={{ fontSize: "14px" }}>
+          Error al cargar las causas
+        </p>
+        <p className="text-gray-500" style={{ fontSize: "13px" }}>
+          {error instanceof Error
+            ? error.message
+            : "Intente nuevamente mas tarde."}
+        </p>
+      </div>
+    );
+  }
 
-  const handleRegisterMovement = (matterId: string) => {
-    const form = getFormForMatter(matterId);
-    if (!form.description.trim()) return;
-    registerMovementMutation.mutate({ matterId, data: form });
-  };
+  /* ---- Sin causas ---- */
+  if (cases.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <CheckCircle className="h-10 w-10 text-green-500" />
+        <p className="font-semibold text-gray-900" style={{ fontSize: "16px" }}>
+          No hay causas pendientes de revision
+        </p>
+        <p className="text-gray-500" style={{ fontSize: "14px" }}>
+          Todas las causas han sido revisadas o no hay causas abiertas.
+        </p>
+      </div>
+    );
+  }
 
-  /* ---- Progress percentage ---- */
-  const progressPercent =
-    matters.length > 0 ? Math.round((reviewedCount / matters.length) * 100) : 0;
+  /* ---- Completado ---- */
+  if (completed) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center justify-center py-16 gap-6">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
+            <CheckCircle className="h-10 w-10 text-green-600" />
+          </div>
+          <div className="text-center">
+            <h2
+              className="font-bold text-gray-900"
+              style={{ fontSize: "20px" }}
+            >
+              Revision completada
+            </h2>
+            <p className="mt-2 text-gray-600" style={{ fontSize: "14px" }}>
+              {summary.approved} aprobadas, {summary.modified} modificadas,{" "}
+              {summary.rejected} rechazadas.
+            </p>
+          </div>
 
-  /* ---------------------------------------------------------------- */
-  /* Render                                                            */
-  /* ---------------------------------------------------------------- */
+          {/* Resumen visual */}
+          <div className="w-full max-w-md">
+            <PizzaTracker
+              steps={trackerSteps}
+              currentStepIndex={cases.length}
+            />
+          </div>
 
+          <button
+            onClick={() => {
+              setCompleted(false);
+              setCurrentIndex(0);
+              setReviewStatuses({});
+            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 transition-colors"
+            style={{ fontSize: "15px" }}
+          >
+            Revisar nuevamente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---- Render principal ---- */
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Revision Diaria de Causas
+      {/* ============ HEADER ============ */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
+          <ClipboardCheck className="h-5 w-5 text-purple-600" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900" style={{ fontSize: "24px" }}>
+          Revision de Causas
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Revisa los movimientos de las causas abiertas del dia
-        </p>
-      </div>
-
-      {/* ---- Progreso del Dia ---- */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-semibold text-gray-700">
-            Progreso del Dia
-          </span>
-          <span className="text-sm font-medium text-gray-900">
-            {reviewedCount} de {matters.length} causa
-            {matters.length !== 1 ? "s" : ""} revisada
-            {reviewedCount !== 1 ? "s" : ""}
-          </span>
-        </div>
-        <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
-          <div
-            className={cn(
-              "h-full rounded-full transition-all duration-500",
-              progressPercent === 100 ? "bg-green-500" : "bg-blue-500"
-            )}
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-        <p className="mt-1 text-xs text-gray-400 text-right">
-          {progressPercent}% completado
-        </p>
-      </div>
-
-      {/* ---- Agent Status Bar ---- */}
-      <AgentStatusBar agents={agentCounts} />
-
-      {/* ---- Process Flow Toggle ---- */}
-      <div>
-        <button
-          onClick={() => setShowProcessFlow((v) => !v)}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+        <span
+          className="inline-flex items-center justify-center rounded-full bg-purple-100 text-purple-800 px-2.5 py-0.5 font-semibold"
+          style={{ fontSize: "13px" }}
         >
-          {showProcessFlow ? (
-            <EyeOff className="h-4 w-4" />
-          ) : (
-            <Eye className="h-4 w-4" />
-          )}
-          {showProcessFlow ? "Ocultar Flujo" : "Ver Flujo"}
-        </button>
-
-        {showProcessFlow && (
-          <div className="mt-3">
-            <ProcessFlow process={revisionCausasProcess} />
-          </div>
-        )}
+          {cases.length}
+        </span>
       </div>
 
-      {/* ---- Summary Cards ---- */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-sm text-gray-500">Causas pendientes de revision</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
-            {matters.length}
-          </p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-sm text-gray-500">Fecha de revision</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
-            {formatDate(new Date().toISOString())}
-          </p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-sm text-gray-500">Revisor</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
-            {user?.full_name || "\u2014"}
-          </p>
-        </div>
-      </div>
-
-      {/* ---- Search ---- */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Buscar por titulo, cliente, rol o tribunal..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-      </div>
-
-      {/* ---- Matters List ---- */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-        </div>
-      ) : filteredMatters.length === 0 ? (
-        <EmptyState
-          icon={Scale}
-          title="No hay causas pendientes"
-          description="Todas las causas han sido revisadas o no hay causas abiertas."
-        />
-      ) : (
-        <div className="space-y-3">
-          {filteredMatters.map((matter) => {
-            const isExpanded = expandedMatter === matter.id;
-            const form = getFormForMatter(matter.id);
-            const borderColor = movementBorderColor(matter.last_movement_at);
-            const accentColor = movementAccentColor(matter.last_movement_at);
-            const urgency = computeUrgency(matter);
-
-            return (
-              <div
-                key={matter.id}
-                className={cn(
-                  "rounded-xl border-2 bg-white shadow-sm overflow-hidden transition-colors",
-                  borderColor
-                )}
-              >
-                {/* Thin coloured accent strip on the left */}
-                <div className="flex">
-                  <div className={cn("w-1.5 flex-shrink-0", accentColor)} />
-
-                  <div className="flex-1 min-w-0">
-                    {/* Matter Header */}
-                    <div className="flex items-center justify-between p-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3">
-                          <Scale className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-medium text-gray-900 truncate">
-                                {matter.title}
-                              </h3>
-                              {urgency === "urgent" && (
-                                <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
-                                  Urgente
-                                </span>
-                              )}
-                              {urgency === "warning" && (
-                                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-700">
-                                  Atencion
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-                              <span className="inline-flex items-center gap-1">
-                                <Building2 className="h-3.5 w-3.5" />
-                                {matter.court}
-                              </span>
-                              <span className="inline-flex items-center gap-1">
-                                <Hash className="h-3.5 w-3.5" />
-                                {matter.rol_number}
-                              </span>
-                              <span className="inline-flex items-center gap-1">
-                                <Calendar className="h-3.5 w-3.5" />
-                                Ultimo mov:{" "}
-                                {matter.last_movement_at
-                                  ? formatDate(matter.last_movement_at)
-                                  : "Sin movimientos"}
-                              </span>
-                              <span className="text-xs text-gray-400">
-                                Cliente: {matter.client_name}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 ml-4">
-                        <button
-                          onClick={() => noMovementMutation.mutate(matter.id)}
-                          disabled={noMovementMutation.isPending}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                        >
-                          <MinusCircle className="h-4 w-4" />
-                          Sin Movimiento
-                        </button>
-                        <button
-                          onClick={() =>
-                            setExpandedMatter(isExpanded ? null : matter.id)
-                          }
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-                        >
-                          <FileText className="h-4 w-4" />
-                          Registrar Movimiento
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Expanded Form */}
-                    {isExpanded && (
-                      <div className="border-t border-gray-200 bg-gray-50 p-4">
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Descripcion del movimiento
-                            </label>
-                            <textarea
-                              value={form.description}
-                              onChange={(e) =>
-                                updateForm(matter.id, {
-                                  description: e.target.value,
-                                })
-                              }
-                              rows={3}
-                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              placeholder="Describa el movimiento registrado..."
-                            />
-                          </div>
-
-                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                            <div>
-                              <label className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={form.has_deadline}
-                                  onChange={(e) =>
-                                    updateForm(matter.id, {
-                                      has_deadline: e.target.checked,
-                                    })
-                                  }
-                                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="text-sm font-medium text-gray-700">
-                                  Tiene plazo
-                                </span>
-                              </label>
-                              {form.has_deadline && (
-                                <input
-                                  type="date"
-                                  value={form.deadline_date || ""}
-                                  onChange={(e) =>
-                                    updateForm(matter.id, {
-                                      deadline_date: e.target.value,
-                                    })
-                                  }
-                                  className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              )}
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Complejidad
-                              </label>
-                              <select
-                                value={form.complexity}
-                                onChange={(e) =>
-                                  updateForm(matter.id, {
-                                    complexity: e.target.value as
-                                      | "low"
-                                      | "medium"
-                                      | "high",
-                                  })
-                                }
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              >
-                                <option value="low">Baja</option>
-                                <option value="medium">Media</option>
-                                <option value="high">Alta</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3 pt-2">
-                            <button
-                              onClick={() =>
-                                handleRegisterMovement(matter.id)
-                              }
-                              disabled={
-                                registerMovementMutation.isPending ||
-                                !form.description.trim()
-                              }
-                              className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                              {registerMovementMutation.isPending
-                                ? "Guardando..."
-                                : "Confirmar Movimiento"}
-                            </button>
-                            <button
-                              onClick={() => setExpandedMatter(null)}
-                              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {/* PizzaTracker de progreso (solo si hay 10 o menos) */}
+      {cases.length <= 10 && (
+        <PizzaTracker steps={trackerSteps} currentStepIndex={currentIndex} />
       )}
+
+      {/* Wizard secuencial */}
+      <SequentialWizard
+        items={wizardItems}
+        currentIndex={currentIndex}
+        onIndexChange={setCurrentIndex}
+        title="Revision de Causas"
+        subtitle={`${cases.length} causas pendientes`}
+        onComplete={handleComplete}
+      />
     </div>
   );
 }

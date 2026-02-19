@@ -1,29 +1,36 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { formatDate } from "@/lib/utils";
 import { getProcessProgress } from "@/lib/process-status-map";
-import { UrgencyCard } from "@/components/shared/urgency-card";
-import { CompactCard } from "@/components/shared/item-card";
-import { AgentMessageList } from "@/components/shared/agent-message";
-import { ProcessStepIndicator } from "@/components/shared/process-step-indicator";
-import { ActionItemsSection } from "@/components/shared/urgency-section";
+import { InboxItem } from "@/components/shared/inbox-item";
+import { AgentLog } from "@/components/shared/agent-log";
+import type { AgentLogEntry } from "@/components/shared/agent-log";
+import { Drawer, useDrawer } from "@/components/layout/drawer";
+import { PizzaTracker } from "@/components/shared/pizza-tracker";
+import { ApprovePanel } from "@/components/shared/approve-panel";
 import {
   AlertTriangle,
-  CalendarClock,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-  TrendingUp,
-  UserPlus,
+  Mail,
   FileText,
+  UserPlus,
   Briefcase,
   DollarSign,
-  Zap,
+  Stamp,
+  ClipboardCheck,
+  Loader2,
+  Bot,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
 } from "lucide-react";
-import Link from "next/link";
+
+/* ------------------------------------------------------------------ */
+/* Types                                                               */
+/* ------------------------------------------------------------------ */
 
 interface ActionItems {
   urgent: Array<{
@@ -74,14 +81,75 @@ interface ActionItems {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+type FilterMode = "todos" | "urgente" | "agentes";
+
+const TYPE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  email: Mail,
+  email_ticket: Mail,
+  proposal: FileText,
+  lead: UserPlus,
+  matter: Briefcase,
+  collection: DollarSign,
+  contract: Stamp,
+  notary: Stamp,
+  case_review: ClipboardCheck,
+  scraper: Bot,
+};
+
+function getIconForType(type: string) {
+  return TYPE_ICON_MAP[type] || FileText;
+}
+
+/* ------------------------------------------------------------------ */
+/* Unified inbox item                                                  */
+/* ------------------------------------------------------------------ */
+
+interface UnifiedItem {
+  id: string;
+  type: string;
+  title: string;
+  subtitle: string;
+  actionLabel: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  timeText?: string;
+  timeUrgent: boolean;
+  badge?: string;
+  badgeColor?: string;
+  priority: number; // 0 = urgent, 1 = today, 2 = inProgress
+  source: "urgent" | "today" | "inProgress";
+  hasAgentInsight: boolean;
+  // Extra data for drawer
+  processId?: string;
+  status?: string;
+  amount?: string;
+  agentInsight?: { agentName: string; message: string; type: string };
+}
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
+
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [filter, setFilter] = useState<FilterMode>("todos");
+  const [agentSectionOpen, setAgentSectionOpen] = useState(false);
+  const [completedOpen, setCompletedOpen] = useState(false);
+
+  const { isOpen, drawerContent, drawerTitle, openDrawer, closeDrawer } =
+    useDrawer();
 
   const { data, isLoading, error } = useQuery<ActionItems>({
     queryKey: ["dashboard-action-items"],
     queryFn: () => api.get("/dashboards/action-items"),
   });
 
+  /* ---- Loading ---- */
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -90,261 +158,448 @@ export default function DashboardPage() {
     );
   }
 
+  /* ---- Error ---- */
   if (error || !data) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <AlertCircle className="h-10 w-10 text-destructive mb-3" />
-        <p className="text-lg font-medium">Error al cargar el dashboard</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          No se pudo obtener la informacion. Intente nuevamente.
+        <AlertTriangle className="h-10 w-10 text-red-500 mb-3" />
+        <p className="text-lg font-medium" style={{ fontSize: "16px" }}>
+          Error al cargar el panel
+        </p>
+        <p
+          className="text-gray-500 mt-1"
+          style={{ fontSize: "14px" }}
+        >
+          No se pudo obtener la informaci&oacute;n. Intente nuevamente.
         </p>
       </div>
     );
   }
 
-  const totalActions = data.urgent.length + data.today.length;
-  const todayStr = formatDate(new Date().toISOString());
+  /* ---------------------------------------------------------------- */
+  /* Build unified inbox list                                          */
+  /* ---------------------------------------------------------------- */
+
   const firstName = user?.full_name?.split(" ")[0] || "Usuario";
 
-  return (
-    <div className="space-y-6">
-      {/* Greeting */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Buenos dias, {firstName}
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {totalActions > 0 ? (
-              <>Tienes <span className="font-semibold text-gray-700">{totalActions} cosas</span> que requieren tu atención</>
-            ) : (
-              "Todo al día. No hay tareas pendientes."
+  // Map agent insights by index for easy lookup
+  const insightsByIndex = data.agentInsights;
+
+  const urgentItems: UnifiedItem[] = data.urgent.map((item, i) => ({
+    id: item.id,
+    type: item.type,
+    title: item.title,
+    subtitle: item.subtitle || item.urgencyText || "",
+    actionLabel: item.actionLabel,
+    icon: <AlertTriangle className="h-5 w-5" />,
+    iconBg: "bg-red-100",
+    iconColor: "text-red-600",
+    timeText: item.urgencyText,
+    timeUrgent: true,
+    badge: "Urgente",
+    badgeColor: "bg-red-100 text-red-700",
+    priority: 0,
+    source: "urgent" as const,
+    hasAgentInsight: i < insightsByIndex.length && insightsByIndex[i]?.type === "warning",
+    amount: item.amount,
+    agentInsight:
+      i < insightsByIndex.length
+        ? insightsByIndex[i]
+        : undefined,
+  }));
+
+  const todayItems: UnifiedItem[] = data.today.map((item, i) => {
+    const Icon = getIconForType(item.type);
+    return {
+      id: item.id,
+      type: item.type,
+      title: item.title,
+      subtitle: item.subtitle || "",
+      actionLabel: item.actionLabel,
+      icon: <Icon className="h-5 w-5" />,
+      iconBg: "bg-yellow-100",
+      iconColor: "text-yellow-600",
+      timeText: "Hoy",
+      timeUrgent: false,
+      badge: "Hoy",
+      badgeColor: "bg-yellow-100 text-yellow-700",
+      priority: 1,
+      source: "today" as const,
+      hasAgentInsight: insightsByIndex.some(
+        (ins) => ins.type === "suggestion"
+      ),
+      agentInsight: insightsByIndex.find(
+        (ins) => ins.type === "suggestion" || ins.type === "info"
+      ),
+    };
+  });
+
+  const inProgressItems: UnifiedItem[] = data.inProgress.map((item) => {
+    const Icon = getIconForType(item.type);
+    const progress = getProcessProgress(item.processId, item.status);
+    return {
+      id: item.id,
+      type: item.type,
+      title: item.title,
+      subtitle: item.subtitle || `${progress.stepLabel} - ${progress.percentage}%`,
+      actionLabel: "Ver progreso",
+      icon: <Icon className="h-5 w-5" />,
+      iconBg: "bg-blue-100",
+      iconColor: "text-blue-600",
+      timeText: `${progress.percentage}%`,
+      timeUrgent: false,
+      badge: "En curso",
+      badgeColor: "bg-blue-100 text-blue-700",
+      priority: 2,
+      source: "inProgress" as const,
+      hasAgentInsight: false,
+      processId: item.processId,
+      status: item.status,
+    };
+  });
+
+  const allItems: UnifiedItem[] = [
+    ...urgentItems,
+    ...todayItems,
+    ...inProgressItems,
+  ].sort((a, b) => a.priority - b.priority);
+
+  /* ---- Filters ---- */
+  const filteredItems =
+    filter === "urgente"
+      ? allItems.filter((i) => i.source === "urgent")
+      : filter === "agentes"
+        ? allItems.filter((i) => i.hasAgentInsight)
+        : allItems;
+
+  const totalPendientes = allItems.length;
+
+  /* ---- Agent log entries ---- */
+  const agentLogEntries: AgentLogEntry[] = data.agentInsights.map(
+    (insight, i) => ({
+      id: `agent-${i}`,
+      agentName: insight.agentName,
+      action: insight.message,
+      timestamp: new Date(Date.now() - i * 3600000).toISOString(),
+      status:
+        insight.type === "warning"
+          ? ("pending_approval" as const)
+          : ("completed" as const),
+      actionRequired:
+        insight.type === "warning" || insight.type === "suggestion",
+    })
+  );
+
+  /* ---------------------------------------------------------------- */
+  /* Drawer handlers                                                   */
+  /* ---------------------------------------------------------------- */
+
+  function handleCardClick(item: UnifiedItem) {
+    if (item.source === "inProgress" && item.processId && item.status) {
+      const progress = getProcessProgress(item.processId, item.status);
+
+      // Build PizzaTracker steps from the process
+      const steps = Array.from({ length: progress.total }, (_, i) => ({
+        id: `step-${i}`,
+        label:
+          i === progress.current
+            ? progress.stepLabel
+            : i < progress.current
+              ? `Paso ${i + 1} completado`
+              : `Paso ${i + 1}`,
+        description:
+          i === progress.current ? progress.stepDescription : undefined,
+      }));
+
+      openDrawer(
+        item.title,
+        <div className="space-y-6">
+          <div>
+            <p
+              className="text-gray-600 mb-4"
+              style={{ fontSize: "14px" }}
+            >
+              {item.subtitle}
+            </p>
+            {progress.agentName && (
+              <div className="flex items-center gap-2 mb-4">
+                <Bot className="h-4 w-4 text-gray-400" />
+                <span
+                  className="text-gray-500"
+                  style={{ fontSize: "13px" }}
+                >
+                  Agente: {progress.agentName}
+                </span>
+              </div>
             )}
+          </div>
+          <PizzaTracker
+            steps={steps}
+            currentStepIndex={progress.current}
+          />
+        </div>
+      );
+      return;
+    }
+
+    // Urgent or today items with agent insight -> ApprovePanel
+    if (item.agentInsight) {
+      openDrawer(
+        item.title,
+        <ApprovePanel
+          agentName={item.agentInsight.agentName}
+          agentAction={item.agentInsight.message}
+          content={`${item.title}\n\n${item.subtitle}${item.amount ? `\n\nMonto: ${item.amount}` : ""}`}
+          onApprove={() => closeDrawer()}
+          onModify={() => closeDrawer()}
+          onReject={() => closeDrawer()}
+        />
+      );
+      return;
+    }
+
+    // Fallback: simple detail view
+    openDrawer(
+      item.title,
+      <div className="space-y-4">
+        <p className="text-gray-700" style={{ fontSize: "15px" }}>
+          {item.subtitle}
+        </p>
+        {item.amount && (
+          <p className="text-gray-900 font-semibold" style={{ fontSize: "16px" }}>
+            Monto: {item.amount}
+          </p>
+        )}
+        <p className="text-gray-400" style={{ fontSize: "13px" }}>
+          Tipo: {item.type} &middot; {item.badge}
+        </p>
+      </div>
+    );
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Render                                                            */
+  /* ---------------------------------------------------------------- */
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
+      {/* ============================================================ */}
+      {/* TOP: Greeting bar                                             */}
+      {/* ============================================================ */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1
+            className="font-bold text-gray-900"
+            style={{ fontSize: "24px" }}
+          >
+            Buenos d&iacute;as, {firstName}
+          </h1>
+          <p
+            className="mt-1 text-gray-500"
+            style={{ fontSize: "15px" }}
+          >
+            {totalPendientes > 0
+              ? `${totalPendientes} cosas pendientes`
+              : "Todo al d\u00eda. Sin tareas pendientes."}
           </p>
         </div>
-        <span className="text-sm text-gray-400">{todayStr}</span>
+
+        {/* Filter chips */}
+        <div className="flex shrink-0 items-center gap-2">
+          {(
+            [
+              { key: "todos", label: "Todos" },
+              { key: "urgente", label: "Urgente" },
+              { key: "agentes", label: "Agentes" },
+            ] as const
+          ).map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={() => setFilter(chip.key)}
+              className={[
+                "rounded-full px-3 py-1 font-medium transition-colors",
+                filter === chip.key
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+              ].join(" ")}
+              style={{ fontSize: "13px" }}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Column: Action Items */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* URGENT */}
-          {data.urgent.length > 0 && (
-            <ActionItemsSection
-              title="Urgente"
-              urgency="urgent"
-              count={data.urgent.length}
-              icon={<AlertTriangle className="h-4 w-4 text-red-600" />}
+      {/* ============================================================ */}
+      {/* MIDDLE: The Inbox (bandeja)                                    */}
+      {/* ============================================================ */}
+      <section aria-label="Bandeja de entrada">
+        {filteredItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 py-12 text-center">
+            <Filter className="h-8 w-8 text-gray-300 mb-3" />
+            <p
+              className="text-gray-500 font-medium"
+              style={{ fontSize: "15px" }}
             >
-              <div className="space-y-3">
-                {data.urgent.map((item) => (
-                  <UrgencyCard
-                    key={item.id}
-                    title={item.title}
-                    subtitle={item.subtitle}
-                    urgency="urgent"
-                    urgencyText={item.urgencyText}
-                    icon={AlertTriangle}
-                    actionLabel={item.actionLabel}
-                    actionHref={item.actionHref}
-                    secondaryLabel={item.secondaryLabel}
-                    secondaryHref={item.secondaryHref}
-                    amount={item.amount}
-                  />
-                ))}
-              </div>
-            </ActionItemsSection>
-          )}
+              No hay elementos con este filtro
+            </p>
+            <button
+              type="button"
+              onClick={() => setFilter("todos")}
+              className="mt-2 text-blue-600 font-medium hover:underline"
+              style={{ fontSize: "14px" }}
+            >
+              Ver todos
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredItems.map((item) => (
+              <InboxItem
+                key={item.id}
+                id={item.id}
+                icon={item.icon}
+                iconBg={item.iconBg}
+                iconColor={item.iconColor}
+                title={item.title}
+                subtitle={item.subtitle}
+                badge={item.badge}
+                badgeColor={item.badgeColor}
+                timeText={item.timeText}
+                timeUrgent={item.timeUrgent}
+                actionLabel={item.actionLabel}
+                onAction={() => handleCardClick(item)}
+                onCardClick={() => handleCardClick(item)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
-          {/* TODAY */}
-          {data.today.length > 0 && (
-            <ActionItemsSection
-              title="Por hacer hoy"
-              urgency="warning"
-              count={data.today.length}
-              icon={<CalendarClock className="h-4 w-4 text-yellow-600" />}
-            >
+      {/* ============================================================ */}
+      {/* BOTTOM: Agent Activity (collapsible)                          */}
+      {/* ============================================================ */}
+      {agentLogEntries.length > 0 && (
+        <section className="rounded-xl border border-gray-200 bg-white">
+          <button
+            type="button"
+            onClick={() => setAgentSectionOpen((prev) => !prev)}
+            className="flex w-full items-center justify-between px-5 py-4 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-100">
+                <Bot className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <h2
+                  className="font-semibold text-gray-900"
+                  style={{ fontSize: "16px" }}
+                >
+                  Actividad de Agentes
+                </h2>
+                {!agentSectionOpen && (
+                  <p
+                    className="text-gray-400 mt-0.5"
+                    style={{ fontSize: "13px" }}
+                  >
+                    {agentLogEntries.length} acciones recientes
+                  </p>
+                )}
+              </div>
+            </div>
+            {agentSectionOpen ? (
+              <ChevronUp className="h-5 w-5 text-gray-400" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-gray-400" />
+            )}
+          </button>
+
+          {agentSectionOpen && (
+            <div className="border-t border-gray-100 px-5 py-4">
+              <AgentLog entries={agentLogEntries} maxVisible={5} />
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ============================================================ */}
+      {/* COMPLETED section                                             */}
+      {/* ============================================================ */}
+      {data.completed.length > 0 && (
+        <section className="rounded-xl border border-gray-200 bg-white">
+          <button
+            type="button"
+            onClick={() => setCompletedOpen((prev) => !prev)}
+            className="flex w-full items-center justify-between px-5 py-4 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <h2
+                  className="font-semibold text-gray-900"
+                  style={{ fontSize: "16px" }}
+                >
+                  Completado hoy
+                </h2>
+                {!completedOpen && (
+                  <p
+                    className="text-gray-400 mt-0.5"
+                    style={{ fontSize: "13px" }}
+                  >
+                    {data.completed.length} tareas completadas
+                  </p>
+                )}
+              </div>
+            </div>
+            {completedOpen ? (
+              <ChevronUp className="h-5 w-5 text-gray-400" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-gray-400" />
+            )}
+          </button>
+
+          {completedOpen && (
+            <div className="border-t border-gray-100 px-5 py-4">
               <div className="space-y-2">
-                {data.today.map((item) => (
-                  <CompactCard
-                    key={item.id}
-                    title={item.title}
-                    subtitle={item.subtitle}
-                    urgency="warning"
-                    actionLabel={item.actionLabel}
-                    actionHref={item.actionHref}
-                  />
-                ))}
-              </div>
-            </ActionItemsSection>
-          )}
-
-          {/* IN PROGRESS */}
-          {data.inProgress.length > 0 && (
-            <ActionItemsSection
-              title="En progreso"
-              urgency="normal"
-              count={data.inProgress.length}
-              icon={<TrendingUp className="h-4 w-4 text-blue-600" />}
-            >
-              <div className="space-y-2">
-                {data.inProgress.map((item) => {
-                  const progress = getProcessProgress(item.processId, item.status);
-                  return (
-                    <Link
-                      key={item.id}
-                      href={item.href || "#"}
-                      className="block rounded-lg border border-gray-200 bg-white p-3 hover:shadow-md transition-all"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-gray-900 truncate">
-                            {item.title}
-                          </h4>
-                          {item.subtitle && (
-                            <p className="text-xs text-gray-500 mt-0.5">{item.subtitle}</p>
-                          )}
-                        </div>
-                        <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 rounded-full px-2 py-0.5 flex-shrink-0">
-                          {progress.percentage}%
-                        </span>
-                      </div>
-                      <div className="mt-2">
-                        <ProcessStepIndicator
-                          current={progress.current}
-                          total={progress.total}
-                          percentage={progress.percentage}
-                          stepLabel={progress.stepLabel}
-                          agentName={progress.agentName}
-                          agentColor={progress.agentColor}
-                          size="sm"
-                        />
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </ActionItemsSection>
-          )}
-
-          {/* COMPLETED */}
-          {data.completed.length > 0 && (
-            <ActionItemsSection
-              title="Completado hoy"
-              urgency="normal"
-              count={data.completed.length}
-              icon={<CheckCircle2 className="h-4 w-4 text-green-600" />}
-              defaultOpen={false}
-            >
-              <div className="space-y-1">
                 {data.completed.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center gap-3 rounded-lg bg-green-50/50 border border-green-100 px-3 py-2"
+                    className="flex items-center gap-3 rounded-lg bg-green-50/50 border border-green-100 px-4 py-3"
                   >
-                    <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-700 truncate">{item.title}</p>
+                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="truncate text-gray-700 font-medium"
+                        style={{ fontSize: "14px" }}
+                      >
+                        {item.title}
+                      </p>
                       {item.subtitle && (
-                        <p className="text-[10px] text-gray-400">{item.subtitle}</p>
+                        <p
+                          className="text-gray-400 truncate"
+                          style={{ fontSize: "13px" }}
+                        >
+                          {item.subtitle}
+                        </p>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
-            </ActionItemsSection>
-          )}
-        </div>
-
-        {/* Right Column: Agent Insights + Quick Numbers */}
-        <div className="space-y-6">
-          {/* Agent Insights */}
-          {data.agentInsights.length > 0 && (
-            <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <AgentMessageList messages={data.agentInsights} maxVisible={5} />
             </div>
           )}
+        </section>
+      )}
 
-          {/* Quick Numbers */}
-          <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Zap className="h-4 w-4 text-primary" />
-              <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Números rápidos</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <QuickNumberCard
-                label="Leads"
-                value={data.quickNumbers.leads}
-                icon={UserPlus}
-                href="/leads"
-                color="blue"
-              />
-              <QuickNumberCard
-                label="Propuestas"
-                value={data.quickNumbers.proposals}
-                icon={FileText}
-                href="/proposals"
-                color="green"
-              />
-              <QuickNumberCard
-                label="Casos"
-                value={data.quickNumbers.matters}
-                icon={Briefcase}
-                href="/matters"
-                color="purple"
-              />
-              <QuickNumberCard
-                label="Vencidos"
-                value={data.quickNumbers.overdue}
-                icon={DollarSign}
-                href="/collections"
-                color="red"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* ============================================================ */}
+      {/* Drawer                                                        */}
+      {/* ============================================================ */}
+      <Drawer open={isOpen} onClose={closeDrawer} title={drawerTitle}>
+        {drawerContent}
+      </Drawer>
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* QUICK NUMBER CARD                                                   */
-/* ------------------------------------------------------------------ */
-
-function QuickNumberCard({
-  label,
-  value,
-  icon: Icon,
-  href,
-  color,
-}: {
-  label: string;
-  value: number;
-  icon: any;
-  href: string;
-  color: string;
-}) {
-  const colorMap: Record<string, { bg: string; text: string; iconBg: string }> = {
-    blue:   { bg: "hover:bg-blue-50", text: "text-blue-700", iconBg: "bg-blue-100" },
-    green:  { bg: "hover:bg-green-50", text: "text-green-700", iconBg: "bg-green-100" },
-    purple: { bg: "hover:bg-purple-50", text: "text-purple-700", iconBg: "bg-purple-100" },
-    red:    { bg: "hover:bg-red-50", text: "text-red-700", iconBg: "bg-red-100" },
-  };
-  const c = colorMap[color] || colorMap.blue;
-
-  return (
-    <Link
-      href={href}
-      className={`flex items-center gap-3 rounded-lg border border-gray-100 p-3 transition-colors ${c.bg}`}
-    >
-      <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${c.iconBg}`}>
-        <Icon className={`h-4 w-4 ${c.text}`} />
-      </div>
-      <div>
-        <p className={`text-lg font-bold ${c.text}`}>{value}</p>
-        <p className="text-[10px] text-gray-500">{label}</p>
-      </div>
-    </Link>
   );
 }

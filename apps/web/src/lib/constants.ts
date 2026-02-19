@@ -174,70 +174,31 @@ export const SIDEBAR_ITEMS = [
 ];
 
 /* ------------------------------------------------------------------ */
-/* SIDEBAR GROUPS (v2 – intuitive for lawyers)                         */
+/* SIDEBAR RAIL (v3 – 5 items, 64px icon rail)                        */
 /* ------------------------------------------------------------------ */
 
-export interface SidebarItem {
-  label: string;
-  href: string;
-  icon: string;
-  badge?: string;          // e.g. "3" for pending items
-  badgeColor?: string;     // tailwind color: "red" | "yellow" | "blue"
-}
+export const SIDEBAR_RAIL_ITEMS = [
+  { label: "Inicio", href: "/dashboard", icon: "Home" },
+  { label: "Mis Cosas", href: "/bandeja", icon: "Inbox" },
+  { label: "Calendario", href: "/calendar", icon: "Calendar" },
+  { label: "Agentes", href: "/agents", icon: "Bot" },
+  { label: "Config", href: "/admin", icon: "Settings" },
+] as const;
 
-export interface SidebarGroup {
-  label: string;
-  items: SidebarItem[];
-  defaultOpen?: boolean;
-}
-
-export const SIDEBAR_GROUPS: SidebarGroup[] = [
-  {
-    label: "MI DIA",
-    defaultOpen: true,
-    items: [
-      { label: "Inicio", href: "/dashboard", icon: "LayoutDashboard" },
-    ],
-  },
-  {
-    label: "CLIENTES",
-    defaultOpen: true,
-    items: [
-      { label: "Recepción", href: "/leads", icon: "UserPlus" },
-      { label: "Clientes", href: "/clients", icon: "Users" },
-      { label: "Propuestas", href: "/proposals", icon: "FileText" },
-    ],
-  },
-  {
-    label: "CASOS",
-    defaultOpen: true,
-    items: [
-      { label: "Casos Activos", href: "/matters", icon: "Briefcase" },
-      { label: "Contratos", href: "/contracts", icon: "FileSignature" },
-      { label: "Trámites Notariales", href: "/notary", icon: "Stamp" },
-      { label: "Revisión del Día", href: "/case-review", icon: "ClipboardCheck" },
-    ],
-  },
-  {
-    label: "GESTIÓN",
-    defaultOpen: true,
-    items: [
-      { label: "Correspondencia", href: "/email-tickets", icon: "Mail" },
-      { label: "Cobranza", href: "/collections", icon: "DollarSign" },
-      { label: "Búsqueda Causas", href: "/scraper", icon: "Search" },
-    ],
-  },
-  {
-    label: "HERRAMIENTAS",
-    defaultOpen: false,
-    items: [
-      { label: "Tareas", href: "/tasks", icon: "CheckSquare" },
-      { label: "Documentos", href: "/documents", icon: "FolderOpen" },
-      { label: "Asistente IA", href: "/ai", icon: "Bot" },
-      { label: "Configuración", href: "/admin", icon: "Settings" },
-    ],
-  },
-];
+/* Entity type icons – used by inbox items and drawers */
+export const ENTITY_ICONS: Record<string, string> = {
+  lead: "UserPlus",
+  email_ticket: "Mail",
+  contract: "FileSignature",
+  proposal: "FileText",
+  matter: "Briefcase",
+  notary: "Stamp",
+  collection: "DollarSign",
+  invoice: "DollarSign",
+  case_review: "ClipboardCheck",
+  task: "CheckSquare",
+  scraper: "Search",
+};
 
 /* ------------------------------------------------------------------ */
 /* URGENCY STYLING                                                     */

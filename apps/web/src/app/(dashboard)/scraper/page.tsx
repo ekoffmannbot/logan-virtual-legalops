@@ -1,29 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import {
-  Search,
-  Loader2,
-  Globe,
-  Calendar,
-  Hash,
-  Building,
-  ExternalLink,
-  CheckCircle2,
-  XCircle,
-  Clock,
-} from "lucide-react";
 import { api } from "@/lib/api";
-import { cn, formatDate } from "@/lib/utils";
-import { ItemCard } from "@/components/shared/item-card";
-import { AgentStatusBar } from "@/components/shared/agent-message";
-import { EmptyState } from "@/components/shared/empty-state";
-import {
-  getProcessProgress,
-  getNextActionLabel,
-} from "@/lib/process-status-map";
+import { InboxItem } from "@/components/shared/inbox-item";
+import { Drawer, useDrawer } from "@/components/layout/drawer";
+import { PizzaTracker } from "@/components/shared/pizza-tracker";
+import { getProcessProgress } from "@/lib/process-status-map";
+import { legalbotScraperProcess } from "@/lib/process-definitions";
+import { Search, Loader2, AlertCircle, Play, CheckCircle } from "lucide-react";
+
+/* ------------------------------------------------------------------ */
+/* TIPOS                                                               */
+/* ------------------------------------------------------------------ */
 
 interface ScraperJob {
   id: number;
@@ -36,6 +25,10 @@ interface ScraperJob {
   completed_at: string | null;
 }
 
+/* ------------------------------------------------------------------ */
+/* HELPERS                                                             */
+/* ------------------------------------------------------------------ */
+
 const JOB_STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
   running: "En Ejecucion",
@@ -44,27 +37,188 @@ const JOB_STATUS_LABELS: Record<string, string> = {
   failed: "Error",
 };
 
-export default function ScraperPage() {
-  const router = useRouter();
+const STATUS_BADGE_COLORS: Record<string, string> = {
+  pending: "bg-gray-100 text-gray-700",
+  running: "bg-blue-100 text-blue-800",
+  processing: "bg-blue-100 text-blue-800",
+  completed: "bg-green-100 text-green-800",
+  failed: "bg-red-100 text-red-800",
+};
 
-  const { data: jobs = [], isLoading } = useQuery({
+function getIconBg(status: string): string {
+  if (status === "running" || status === "processing") return "bg-blue-100";
+  if (status === "completed") return "bg-green-100";
+  if (status === "failed") return "bg-red-100";
+  return "bg-gray-100";
+}
+
+function getIconColor(status: string): string {
+  if (status === "running" || status === "processing") return "text-blue-600";
+  if (status === "completed") return "text-green-600";
+  if (status === "failed") return "text-red-600";
+  return "text-gray-500";
+}
+
+function getActionLabel(status: string): string {
+  if (status === "completed") return "Ver Resultados";
+  if (status === "running" || status === "processing") return "En Proceso";
+  if (status === "failed") return "Ver Error";
+  return "Ver Detalle";
+}
+
+function isActionDisabled(status: string): boolean {
+  return status === "running" || status === "processing";
+}
+
+function formatDateSpanish(dateStr: string | null): string {
+  if (!dateStr) return "-";
+  return new Date(dateStr).toLocaleDateString("es-CL", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function getRelativeTimeSpanish(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays > 0) return `hace ${diffDays} dia${diffDays > 1 ? "s" : ""}`;
+  if (diffHours > 0) return `hace ${diffHours} hora${diffHours > 1 ? "s" : ""}`;
+  if (diffMins > 0) return `hace ${diffMins} min`;
+  return "ahora";
+}
+
+/**
+ * Construye los pasos para el PizzaTracker.
+ */
+function buildPizzaSteps(status: string) {
+  const process = legalbotScraperProcess;
+  const taskSteps = process.steps.filter(
+    (s) => s.type !== "start" && s.type !== "end" && s.type !== "decision"
+  );
+
+  const progress = getProcessProgress("legalbot-scraper", status);
+
+  const allSteps = process.steps;
+  const currentStepId = allSteps[progress.current]?.id || allSteps[0]?.id;
+
+  let currentIndex = taskSteps.findIndex((s) => s.id === currentStepId);
+  if (currentIndex === -1) {
+    const currentAllIndex = allSteps.findIndex((s) => s.id === currentStepId);
+    for (let i = currentAllIndex; i >= 0; i--) {
+      const idx = taskSteps.findIndex((s) => s.id === allSteps[i].id);
+      if (idx !== -1) {
+        currentIndex = idx;
+        break;
+      }
+    }
+    if (currentIndex === -1) currentIndex = 0;
+  }
+
+  const steps = taskSteps.map((s) => ({
+    id: s.id,
+    label: s.label,
+    description: s.description,
+  }));
+
+  return { steps, currentIndex, progress };
+}
+
+/* ------------------------------------------------------------------ */
+/* PAGINA                                                              */
+/* ------------------------------------------------------------------ */
+
+export default function ScraperPage() {
+  const { data: jobs = [], isLoading, isError } = useQuery({
     queryKey: ["scraper", "jobs"],
     queryFn: () => api.get<ScraperJob[]>("/scraper/jobs"),
   });
 
-  const runningJobs = jobs.filter(
-    (j) => j.status === "running" || j.status === "processing"
-  );
-  const pendingJobs = jobs.filter((j) => j.status === "pending");
-  const completedJobs = jobs.filter((j) => j.status === "completed");
-  const failedJobs = jobs.filter((j) => j.status === "failed");
+  const { isOpen, drawerTitle, drawerContent, openDrawer, closeDrawer } =
+    useDrawer();
 
-  // Agent counts
-  const agentCounts = {
-    comercial: pendingJobs.length + completedJobs.length,
-    bot: runningJobs.length,
-  };
+  /* Abrir drawer con detalle del trabajo */
+  function handleOpenDetail(job: ScraperJob) {
+    const { steps, currentIndex, progress } = buildPizzaSteps(job.status);
+    const statusLabel = JOB_STATUS_LABELS[job.status] || job.status;
 
+    openDrawer(
+      job.name,
+      <div className="space-y-6">
+        {/* Progreso visual */}
+        <div>
+          <p style={{ fontSize: "14px" }} className="font-semibold text-gray-700 mb-1">
+            Progreso de la busqueda
+          </p>
+          <p style={{ fontSize: "13px" }} className="text-gray-500 mb-4">
+            Paso {currentIndex + 1} de {steps.length}: {progress.stepLabel}
+          </p>
+          <PizzaTracker steps={steps} currentStepIndex={currentIndex} />
+        </div>
+
+        {/* Detalles del trabajo */}
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+          <h3 style={{ fontSize: "15px" }} className="font-semibold text-gray-800">
+            Detalles de la busqueda
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <Detail label="Consulta" value={job.query} />
+            <Detail label="Tribunal" value={job.court} />
+            <Detail label="Estado" value={statusLabel} />
+            <Detail label="Resultados" value={String(job.results_count)} />
+            <Detail label="Creado" value={formatDateSpanish(job.created_at)} />
+            <Detail label="Completado" value={formatDateSpanish(job.completed_at)} />
+          </div>
+        </div>
+
+        {/* Lista de resultados stub */}
+        {job.status === "completed" && job.results_count > 0 && (
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-2">
+            <h3 style={{ fontSize: "15px" }} className="font-semibold text-gray-800">
+              Resultados encontrados
+            </h3>
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 font-semibold text-green-800"
+                style={{ fontSize: "13px" }}
+              >
+                <CheckCircle className="h-3.5 w-3.5" />
+                {job.results_count} causas encontradas
+              </span>
+            </div>
+            <p style={{ fontSize: "13px" }} className="text-gray-500 mt-2">
+              Las causas encontradas se pueden derivar al proceso de Causas JPL para contactar a los clientes potenciales.
+            </p>
+          </div>
+        )}
+
+        {/* Estado en ejecucion */}
+        {(job.status === "running" || job.status === "processing") && (
+          <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+              <p style={{ fontSize: "14px" }} className="font-semibold text-blue-700">
+                Busqueda en progreso
+              </p>
+            </div>
+            <p style={{ fontSize: "13px" }} className="text-blue-600">
+              El bot esta ejecutando la busqueda automatizada. Los resultados se actualizaran automaticamente.
+            </p>
+            <div className="mt-3 h-1.5 w-full rounded-full bg-blue-200 overflow-hidden">
+              <div className="h-full w-2/3 rounded-full bg-blue-500 animate-pulse" />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* ---- Estados de carga / error ---- */
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -73,212 +227,84 @@ export default function ScraperPage() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-2 text-red-600">
+        <AlertCircle className="h-8 w-8" />
+        <p style={{ fontSize: "14px" }}>Error al cargar busquedas</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
+      {/* ---- HEADER ---- */}
+      <div className="flex items-center gap-3">
+        <Search className="h-6 w-6 text-gray-700" />
         <h1 className="text-2xl font-bold text-gray-900">
           Busqueda de Causas
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Busqueda automatizada de causas en tribunales
-        </p>
+        <span className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-gray-200 px-2 font-semibold text-gray-600" style={{ fontSize: "13px" }}>
+          {jobs.length}
+        </span>
       </div>
 
-      {/* Agent Status Bar */}
-      <AgentStatusBar
-        agents={[
-          { name: "Agente Comercial", count: agentCounts.comercial, color: "teal" },
-          { name: "Bot Scraper", count: agentCounts.bot, color: "slate" },
-        ]}
-      />
-
-      {/* Content */}
+      {/* ---- LISTA ---- */}
       {jobs.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title="No hay busquedas"
-          description="No se encontraron trabajos de busqueda de causas."
-        />
+        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-400">
+          <Search className="h-10 w-10" />
+          <p style={{ fontSize: "14px" }}>No hay busquedas registradas</p>
+        </div>
       ) : (
-        <div className="space-y-6">
-          {/* Running Jobs - Prominent */}
-          {runningJobs.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                <h2 className="text-sm font-bold text-blue-700 uppercase tracking-wide">
-                  En Ejecucion
-                </h2>
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-100 px-1.5 text-[10px] font-bold text-blue-800">
-                  {runningJobs.length}
-                </span>
-              </div>
-              {runningJobs.map((job) => {
-                const progress = getProcessProgress("legalbot-scraper", job.status);
-
-                return (
-                  <div
-                    key={job.id}
-                    className="rounded-xl border-2 border-blue-300 bg-blue-50 p-4 transition-all"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin text-blue-500 flex-shrink-0" />
-                          <h4 className="text-sm font-semibold text-gray-900 truncate">
-                            {job.name}
-                          </h4>
-                        </div>
-                        <p className="mt-1 text-xs text-gray-500">
-                          Consulta: {job.query}
-                        </p>
-                      </div>
-                      <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800">
-                        {JOB_STATUS_LABELS[job.status] || job.status}
-                      </span>
-                    </div>
-
-                    <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
-                      <span className="inline-flex items-center gap-1">
-                        <Building className="h-3 w-3" />
-                        {job.court}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <Hash className="h-3 w-3" />
-                        {job.results_count} resultados
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(job.created_at)}
-                      </span>
-                    </div>
-
-                    {/* Animated progress bar */}
-                    <div className="mt-3 h-1.5 w-full rounded-full bg-blue-200 overflow-hidden">
-                      <div className="h-full w-2/3 rounded-full bg-blue-500 animate-pulse" />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Pending Jobs */}
-          {pendingJobs.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-gray-400" />
-                <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wide">
-                  Pendientes
-                </h2>
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-gray-100 px-1.5 text-[10px] font-bold text-gray-700">
-                  {pendingJobs.length}
-                </span>
-              </div>
-              {pendingJobs.map((job) => {
-                const progress = getProcessProgress("legalbot-scraper", job.status);
-                const actionLabel = getNextActionLabel("legalbot-scraper", job.status);
-
-                return (
-                  <ItemCard
-                    key={job.id}
-                    title={job.name}
-                    subtitle={`Consulta: ${job.query}`}
-                    statusLabel={JOB_STATUS_LABELS[job.status] || job.status}
-                    urgency="normal"
-                    progress={progress}
-                    meta={[
-                      { icon: Building, label: job.court },
-                      { icon: Calendar, label: formatDate(job.created_at) },
-                    ]}
-                    actionLabel={actionLabel}
-                    href={`/scraper/${job.id}`}
-                  />
-                );
-              })}
-            </div>
-          )}
-
-          {/* Completed Jobs */}
-          {completedJobs.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <h2 className="text-sm font-bold text-green-700 uppercase tracking-wide">
-                  Completados
-                </h2>
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-green-100 px-1.5 text-[10px] font-bold text-green-800">
-                  {completedJobs.length}
-                </span>
-              </div>
-              {completedJobs.map((job) => {
-                const progress = getProcessProgress("legalbot-scraper", job.status);
-                const actionLabel = getNextActionLabel("legalbot-scraper", job.status);
-
-                return (
-                  <ItemCard
-                    key={job.id}
-                    title={job.name}
-                    subtitle={`Consulta: ${job.query}`}
-                    statusLabel={JOB_STATUS_LABELS[job.status] || job.status}
-                    urgency="normal"
-                    progress={progress}
-                    meta={[
-                      { icon: Building, label: job.court },
-                      { icon: Calendar, label: formatDate(job.created_at) },
-                    ]}
-                    actionLabel={actionLabel}
-                    href={`/scraper/${job.id}`}
-                  >
-                    {/* Results count badge */}
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-800">
-                        <Hash className="h-3 w-3" />
-                        {job.results_count} resultados encontrados
-                      </span>
-                      {job.completed_at && (
-                        <span className="text-[10px] text-gray-400">
-                          Completado: {formatDate(job.completed_at)}
-                        </span>
-                      )}
-                    </div>
-                  </ItemCard>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Failed Jobs */}
-          {failedJobs.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <XCircle className="h-4 w-4 text-red-500" />
-                <h2 className="text-sm font-bold text-red-700 uppercase tracking-wide">
-                  Con Errores
-                </h2>
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-100 px-1.5 text-[10px] font-bold text-red-800">
-                  {failedJobs.length}
-                </span>
-              </div>
-              {failedJobs.map((job) => (
-                <ItemCard
-                  key={job.id}
-                  title={job.name}
-                  subtitle={`Consulta: ${job.query}`}
-                  statusLabel="Error"
-                  urgency="urgent"
-                  meta={[
-                    { icon: Building, label: job.court },
-                    { icon: Calendar, label: formatDate(job.created_at) },
-                  ]}
-                  href={`/scraper/${job.id}`}
-                />
-              ))}
-            </div>
-          )}
+        <div className="space-y-3">
+          {jobs.map((job) => (
+            <InboxItem
+              key={job.id}
+              id={String(job.id)}
+              icon={<Search className="h-5 w-5" />}
+              iconBg={getIconBg(job.status)}
+              iconColor={getIconColor(job.status)}
+              title={job.name}
+              subtitle={`${job.query} · ${job.court}`}
+              badge={JOB_STATUS_LABELS[job.status] || job.status}
+              badgeColor={STATUS_BADGE_COLORS[job.status] || "bg-gray-100 text-gray-700"}
+              timeText={getRelativeTimeSpanish(job.created_at)}
+              actionLabel={getActionLabel(job.status)}
+              onAction={() => {
+                if (!isActionDisabled(job.status)) {
+                  handleOpenDetail(job);
+                }
+              }}
+              onCardClick={() => handleOpenDetail(job)}
+            />
+          ))}
         </div>
       )}
+
+      {/* ---- DRAWER ---- */}
+      <Drawer open={isOpen} onClose={closeDrawer} title={drawerTitle}>
+        {drawerContent}
+      </Drawer>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* COMPONENTE AUXILIAR                                                  */
+/* ------------------------------------------------------------------ */
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p
+        className="font-medium text-gray-500 uppercase tracking-wide"
+        style={{ fontSize: "13px" }}
+      >
+        {label}
+      </p>
+      <p className="text-gray-900 mt-0.5" style={{ fontSize: "14px" }}>
+        {value}
+      </p>
     </div>
   );
 }

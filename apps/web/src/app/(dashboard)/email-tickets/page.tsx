@@ -2,26 +2,22 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Mail, Search, Loader2, Inbox, Calendar, User, Eye, EyeOff } from "lucide-react";
 import { api } from "@/lib/api";
-import { cn, formatDate } from "@/lib/utils";
-import { EMAIL_TICKET_STATUS_LABELS } from "@/lib/constants";
+import { InboxItem } from "@/components/shared/inbox-item";
+import { Drawer, useDrawer } from "@/components/layout/drawer";
+import { PizzaTracker } from "@/components/shared/pizza-tracker";
 import {
-  computeUrgency,
   getProcessProgress,
   getNextActionLabel,
+  computeUrgency,
   getTimeUntil,
+  getRelativeTime,
 } from "@/lib/process-status-map";
-import type { UrgencyLevel } from "@/lib/process-status-map";
-import { ItemCard } from "@/components/shared/item-card";
-import { AgentStatusBar } from "@/components/shared/agent-message";
-import { UrgencySection } from "@/components/shared/urgency-section";
-import { EmptyState } from "@/components/shared/empty-state";
-import { ProcessFlow } from "@/components/shared/process-flow";
-import { respuestaCorreosProcess } from "@/lib/process-definitions";
+import { EMAIL_TICKET_STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
+import { Mail, Loader2, AlertTriangle, Clock, User } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
-/* TYPES                                                               */
+/* Tipos                                                               */
 /* ------------------------------------------------------------------ */
 
 interface EmailTicket {
@@ -40,303 +36,374 @@ interface EmailTicket {
 }
 
 /* ------------------------------------------------------------------ */
-/* PAGE                                                                */
+/* Filtros                                                             */
+/* ------------------------------------------------------------------ */
+
+type FilterKey = "todos" | "pendientes" | "sla_riesgo" | "cerrados";
+
+const FILTER_CHIPS: { key: FilterKey; label: string }[] = [
+  { key: "todos", label: "Todos" },
+  { key: "pendientes", label: "Pendientes" },
+  { key: "sla_riesgo", label: "SLA Riesgo" },
+  { key: "cerrados", label: "Cerrados" },
+];
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+const URGENCY_ICON_BG: Record<string, string> = {
+  urgent: "bg-red-100",
+  warning: "bg-yellow-100",
+  normal: "bg-blue-100",
+};
+
+const URGENCY_ICON_COLOR: Record<string, string> = {
+  urgent: "text-red-600",
+  warning: "text-yellow-600",
+  normal: "text-blue-600",
+};
+
+/** Checks if an SLA deadline is within 6 hours or already passed. */
+function isSlaAtRisk(ticket: EmailTicket): boolean {
+  const deadline = ticket.sla_24h_deadline || ticket.sla_deadline;
+  if (!deadline) return false;
+  const hoursLeft =
+    (new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60);
+  return hoursLeft <= 6;
+}
+
+/** Pizza Tracker steps for email process. */
+const EMAIL_PIZZA_STEPS = [
+  { id: "new", label: "Nuevo" },
+  { id: "drafting", label: "Redaccion" },
+  { id: "waiting_manager_approval", label: "VB Jefe" },
+  { id: "sent", label: "Enviado" },
+  { id: "receipt_confirmed", label: "Confirmado" },
+  { id: "closed", label: "Cerrado" },
+];
+
+function getEmailStepIndex(status: string): number {
+  const idx = EMAIL_PIZZA_STEPS.findIndex((s) => s.id === status);
+  if (idx >= 0) return idx;
+  // SLA breached statuses map to their equivalent step
+  if (status === "sla_breached_24h") return 1;
+  if (status === "sla_breached_48h") return 2;
+  return 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Pagina                                                              */
 /* ------------------------------------------------------------------ */
 
 export default function EmailTicketsPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showProcessFlow, setShowProcessFlow] = useState(false);
+  const [filter, setFilter] = useState<FilterKey>("todos");
+  const { isOpen, drawerTitle, drawerContent, openDrawer, closeDrawer } =
+    useDrawer();
 
-  /* ---- Data fetching ---- */
-  const { data: tickets = [], isLoading } = useQuery({
+  /* ---- Fetch ---- */
+  const {
+    data: tickets = [],
+    isLoading,
+    isError,
+  } = useQuery<EmailTicket[]>({
     queryKey: ["email-tickets"],
-    queryFn: () => api.get<EmailTicket[]>("/email-tickets"),
+    queryFn: () => api.get("/email-tickets"),
   });
 
-  /* ---- Search filter ---- */
+  /* ---- Filtrado ---- */
   const filtered = useMemo(() => {
-    if (!searchTerm.trim()) return tickets;
-    const q = searchTerm.toLowerCase();
-    return tickets.filter(
-      (t) =>
-        t.subject.toLowerCase().includes(q) ||
-        t.from_name.toLowerCase().includes(q),
-    );
-  }, [tickets, searchTerm]);
-
-  /* ---- Enrich & sort by urgency ---- */
-  const enriched = useMemo(() => {
-    return filtered
-      .map((ticket) => {
-        const urgency = computeUrgency(ticket);
-        const progress = getProcessProgress(
-          ticket.process_id || "respuesta-correos",
-          ticket.status,
+    switch (filter) {
+      case "pendientes":
+        return tickets.filter(
+          (t) => t.status === "new" || t.status === "drafting",
         );
-        const actionLabel = getNextActionLabel(
-          ticket.process_id || "respuesta-correos",
-          ticket.status,
+      case "sla_riesgo":
+        return tickets.filter((t) => isSlaAtRisk(t));
+      case "cerrados":
+        return tickets.filter(
+          (t) => t.status === "closed" || t.status === "receipt_confirmed",
         );
-        const slaText = ticket.sla_deadline
-          ? getTimeUntil(ticket.sla_deadline)
-          : ticket.sla_24h_deadline
-            ? getTimeUntil(ticket.sla_24h_deadline)
-            : undefined;
-
-        return { ticket, urgency, progress, actionLabel, slaText };
-      })
-      .sort((a, b) => {
-        const order: Record<UrgencyLevel, number> = {
-          urgent: 0,
-          warning: 1,
-          normal: 2,
-        };
-        return order[a.urgency] - order[b.urgency];
-      });
-  }, [filtered]);
-
-  /* ---- Group into urgency sections ---- */
-  const closedStatuses = new Set(["closed", "receipt_confirmed"]);
-
-  const urgentItems = enriched.filter(
-    (e) => e.urgency === "urgent" && !closedStatuses.has(e.ticket.status),
-  );
-  const normalItems = enriched.filter(
-    (e) => e.urgency !== "urgent" && !closedStatuses.has(e.ticket.status),
-  );
-  const closedItems = enriched.filter((e) =>
-    closedStatuses.has(e.ticket.status),
-  );
-
-  /* ---- Compute header stats ---- */
-  const totalCount = tickets.length;
-  const openCount = tickets.filter(
-    (t) => !closedStatuses.has(t.status),
-  ).length;
-  const slaAtRiskCount = tickets.filter((t) => {
-    const u = computeUrgency(t);
-    return (u === "urgent" || u === "warning") && !closedStatuses.has(t.status);
-  }).length;
-
-  /* ---- Agent counts for status bar ---- */
-  const agentCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const t of tickets) {
-      if (t.assigned_to_name && !closedStatuses.has(t.status)) {
-        counts[t.assigned_to_name] = (counts[t.assigned_to_name] || 0) + 1;
-      }
+      default:
+        return tickets;
     }
-    return counts;
-  }, [tickets]);
+  }, [tickets, filter]);
 
-  const agentBarData = [
-    {
-      name: "Abogado",
-      count: Object.entries(agentCounts)
-        .filter(([name]) => !name.toLowerCase().includes("jefe"))
-        .reduce((sum, [, c]) => sum + c, 0),
-      color: "blue",
-    },
-    {
-      name: "Abogado Jefe",
-      count: Object.entries(agentCounts)
-        .filter(([name]) => name.toLowerCase().includes("jefe"))
-        .reduce((sum, [, c]) => sum + c, 0),
-      color: "purple",
-    },
-  ];
+  const slaCount = useMemo(
+    () => tickets.filter((t) => isSlaAtRisk(t)).length,
+    [tickets],
+  );
+
+  /* ---- Abrir drawer ---- */
+  function handleOpen(ticket: EmailTicket) {
+    openDrawer(ticket.subject, <TicketDetail ticket={ticket} />);
+  }
+
+  /* ---- Loading ---- */
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  /* ---- Error ---- */
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+        <AlertTriangle className="h-10 w-10 text-red-500" />
+        <p className="font-medium text-gray-800" style={{ fontSize: "16px" }}>
+          Error al cargar la correspondencia
+        </p>
+      </div>
+    );
+  }
 
   /* ---- Render ---- */
   return (
-    <div className="space-y-6">
-      {/* ============================================================ */}
-      {/* HEADER                                                        */}
-      {/* ============================================================ */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Correspondencia</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Gestión de correos entrantes con seguimiento de SLA
+    <div className="space-y-5">
+      {/* ============ HEADER ============ */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+          <Mail className="h-5 w-5 text-blue-600" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900" style={{ fontSize: "24px" }}>
+          Correspondencia
+        </h1>
+        <span
+          className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-700 px-2.5 py-0.5 font-semibold"
+          style={{ fontSize: "13px" }}
+        >
+          {tickets.length}
+        </span>
+      </div>
+
+      {/* ============ FILTER CHIPS ============ */}
+      <div className="flex flex-wrap gap-2">
+        {FILTER_CHIPS.map((chip) => {
+          const active = filter === chip.key;
+          return (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={() => setFilter(chip.key)}
+              className={[
+                "inline-flex items-center rounded-full px-4 py-1.5 font-medium transition-colors",
+                active
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+              ].join(" ")}
+              style={{ fontSize: "14px" }}
+            >
+              {chip.label}
+              {chip.key === "sla_riesgo" && slaCount > 0 && (
+                <span
+                  className={[
+                    "ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 font-semibold",
+                    active
+                      ? "bg-white/20 text-white"
+                      : "bg-red-100 text-red-700",
+                  ].join(" ")}
+                  style={{ fontSize: "13px" }}
+                >
+                  {slaCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ============ LISTA / EMPTY ============ */}
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
+            <Mail className="h-8 w-8 text-gray-400" />
+          </div>
+          <p className="font-medium text-gray-700" style={{ fontSize: "16px" }}>
+            No hay correspondencia
+          </p>
+          <p className="text-gray-500 mt-1" style={{ fontSize: "14px" }}>
+            No se encontraron correos con el filtro seleccionado.
           </p>
         </div>
-
-        {/* Stat pills */}
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700">
-            <Mail className="h-3.5 w-3.5 text-gray-400" />
-            Total: {totalCount}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-            <Inbox className="h-3.5 w-3.5" />
-            Abiertos: {openCount}
-          </span>
-          {slaAtRiskCount > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
-              SLA en riesgo: {slaAtRiskCount}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ============================================================ */}
-      {/* AGENT STATUS BAR                                              */}
-      {/* ============================================================ */}
-      <AgentStatusBar agents={agentBarData} />
-
-      {/* ============================================================ */}
-      {/* PROCESS FLOW TOGGLE                                           */}
-      {/* ============================================================ */}
-      <div>
-        <button
-          onClick={() => setShowProcessFlow(!showProcessFlow)}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          {showProcessFlow ? (
-            <EyeOff className="h-3.5 w-3.5" />
-          ) : (
-            <Eye className="h-3.5 w-3.5" />
-          )}
-          {showProcessFlow ? "Ocultar Flujo" : "Ver Flujo de Respuesta"}
-        </button>
-        {showProcessFlow && (
-          <div className="mt-3">
-            <ProcessFlow process={respuestaCorreosProcess} />
-          </div>
-        )}
-      </div>
-
-      {/* ============================================================ */}
-      {/* SEARCH                                                        */}
-      {/* ============================================================ */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Buscar por asunto o remitente..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-      </div>
-
-      {/* ============================================================ */}
-      {/* CONTENT                                                       */}
-      {/* ============================================================ */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : enriched.length === 0 ? (
-        <EmptyState
-          icon={Mail}
-          title="No hay correspondencia"
-          description="No se encontraron correos con los filtros aplicados."
-        />
       ) : (
-        <div className="space-y-6">
-          {/* --- Urgente --- */}
-          {urgentItems.length > 0 && (
-            <UrgencySection
-              title="Urgente"
-              urgency="urgent"
-              count={urgentItems.length}
-              defaultOpen
-            >
-              {urgentItems.map(({ ticket, urgency, progress, actionLabel, slaText }) => (
-                <div key={ticket.id} className="p-2">
-                  <ItemCard
-                    title={ticket.subject}
-                    subtitle={
-                      ticket.from_name +
-                      (ticket.matter_title ? " \u00B7 " + ticket.matter_title : "")
-                    }
-                    statusLabel={EMAIL_TICKET_STATUS_LABELS[ticket.status] || ticket.status}
-                    statusKey={ticket.status}
-                    urgency={urgency}
-                    urgencyText={slaText}
-                    progress={progress}
-                    meta={[
-                      { icon: User, label: ticket.assigned_to_name || "Sin asignar" },
-                      { icon: Calendar, label: formatDate(ticket.created_at) },
-                    ]}
-                    actionLabel={actionLabel}
-                    actionHref={`/email-tickets/${ticket.id}`}
-                    href={`/email-tickets/${ticket.id}`}
-                  />
-                </div>
-              ))}
-            </UrgencySection>
-          )}
+        <div className="flex flex-col gap-3">
+          {filtered.map((ticket) => {
+            const urgency = computeUrgency(ticket);
+            const timeText = ticket.sla_24h_deadline
+              ? getTimeUntil(ticket.sla_24h_deadline)
+              : getRelativeTime(ticket.created_at);
 
-          {/* --- En Proceso --- */}
-          {normalItems.length > 0 && (
-            <UrgencySection
-              title="En Proceso"
-              urgency="normal"
-              count={normalItems.length}
-              defaultOpen
-            >
-              {normalItems.map(({ ticket, urgency, progress, actionLabel, slaText }) => (
-                <div key={ticket.id} className="p-2">
-                  <ItemCard
-                    title={ticket.subject}
-                    subtitle={
-                      ticket.from_name +
-                      (ticket.matter_title ? " \u00B7 " + ticket.matter_title : "")
-                    }
-                    statusLabel={EMAIL_TICKET_STATUS_LABELS[ticket.status] || ticket.status}
-                    statusKey={ticket.status}
-                    urgency={urgency}
-                    urgencyText={slaText}
-                    progress={progress}
-                    meta={[
-                      { icon: User, label: ticket.assigned_to_name || "Sin asignar" },
-                      { icon: Calendar, label: formatDate(ticket.created_at) },
-                    ]}
-                    actionLabel={actionLabel}
-                    actionHref={`/email-tickets/${ticket.id}`}
-                    href={`/email-tickets/${ticket.id}`}
-                  />
-                </div>
-              ))}
-            </UrgencySection>
-          )}
-
-          {/* --- Resueltos --- */}
-          {closedItems.length > 0 && (
-            <UrgencySection
-              title="Resueltos"
-              urgency="normal"
-              count={closedItems.length}
-              defaultOpen={false}
-            >
-              {closedItems.map(({ ticket, urgency, progress, actionLabel, slaText }) => (
-                <div key={ticket.id} className="p-2">
-                  <ItemCard
-                    title={ticket.subject}
-                    subtitle={
-                      ticket.from_name +
-                      (ticket.matter_title ? " \u00B7 " + ticket.matter_title : "")
-                    }
-                    statusLabel={EMAIL_TICKET_STATUS_LABELS[ticket.status] || ticket.status}
-                    statusKey={ticket.status}
-                    urgency={urgency}
-                    urgencyText={slaText}
-                    progress={progress}
-                    meta={[
-                      { icon: User, label: ticket.assigned_to_name || "Sin asignar" },
-                      { icon: Calendar, label: formatDate(ticket.created_at) },
-                    ]}
-                    actionLabel={actionLabel}
-                    actionHref={`/email-tickets/${ticket.id}`}
-                    href={`/email-tickets/${ticket.id}`}
-                  />
-                </div>
-              ))}
-            </UrgencySection>
-          )}
+            return (
+              <InboxItem
+                key={ticket.id}
+                id={String(ticket.id)}
+                icon={<Mail className="h-5 w-5" />}
+                iconBg={URGENCY_ICON_BG[urgency] || "bg-blue-100"}
+                iconColor={URGENCY_ICON_COLOR[urgency] || "text-blue-600"}
+                title={ticket.subject}
+                subtitle={`${ticket.from_name} \u00B7 ${ticket.matter_title || "Sin caso asociado"}`}
+                badge={EMAIL_TICKET_STATUS_LABELS[ticket.status] || ticket.status}
+                badgeColor={STATUS_COLORS[ticket.status] || "bg-gray-100 text-gray-700"}
+                timeText={timeText}
+                timeUrgent={urgency === "urgent"}
+                actionLabel={getNextActionLabel(ticket.process_id, ticket.status)}
+                onAction={() => handleOpen(ticket)}
+                onCardClick={() => handleOpen(ticket)}
+              />
+            );
+          })}
         </div>
       )}
+
+      {/* ============ DRAWER ============ */}
+      <Drawer open={isOpen} onClose={closeDrawer} title={drawerTitle}>
+        {drawerContent}
+      </Drawer>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Drawer content                                                      */
+/* ------------------------------------------------------------------ */
+
+function TicketDetail({ ticket }: { ticket: EmailTicket }) {
+  const deadline = ticket.sla_24h_deadline || ticket.sla_deadline;
+  const hoursLeft = deadline
+    ? Math.max(
+        0,
+        Math.floor(
+          (new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60),
+        ),
+      )
+    : null;
+  const slaExpired = deadline
+    ? new Date(deadline).getTime() < Date.now()
+    : false;
+
+  return (
+    <div className="space-y-6">
+      {/* ---- Informacion del correo ---- */}
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+        <h3
+          className="font-semibold text-gray-800"
+          style={{ fontSize: "15px" }}
+        >
+          Informacion del Correo
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          <Detail label="Remitente" value={ticket.from_name} />
+          <Detail label="Email" value={ticket.from_email} />
+          <Detail label="Prioridad" value={ticket.priority || "Normal"} />
+          <Detail
+            label="Asignado a"
+            value={ticket.assigned_to_name || "Sin asignar"}
+          />
+        </div>
+      </div>
+
+      {/* ---- Caso asociado ---- */}
+      <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-1">
+        <p className="font-medium text-gray-500" style={{ fontSize: "13px" }}>
+          Caso Asociado
+        </p>
+        <p className="font-semibold text-gray-900" style={{ fontSize: "14px" }}>
+          {ticket.matter_title || "Sin caso asociado"}
+        </p>
+      </div>
+
+      {/* ---- Countdown SLA ---- */}
+      {deadline && (
+        <div
+          className={[
+            "flex items-center gap-3 rounded-xl border p-4",
+            slaExpired
+              ? "border-red-200 bg-red-50"
+              : hoursLeft !== null && hoursLeft <= 6
+                ? "border-red-200 bg-red-50"
+                : hoursLeft !== null && hoursLeft <= 12
+                  ? "border-yellow-200 bg-yellow-50"
+                  : "border-gray-200 bg-gray-50",
+          ].join(" ")}
+        >
+          <Clock
+            className={[
+              "h-5 w-5",
+              slaExpired
+                ? "text-red-600"
+                : hoursLeft !== null && hoursLeft <= 6
+                  ? "text-red-600"
+                  : hoursLeft !== null && hoursLeft <= 12
+                    ? "text-yellow-600"
+                    : "text-gray-500",
+            ].join(" ")}
+          />
+          <div>
+            <p
+              className={[
+                "font-semibold",
+                slaExpired
+                  ? "text-red-700"
+                  : hoursLeft !== null && hoursLeft <= 6
+                    ? "text-red-700"
+                    : "text-gray-700",
+              ].join(" ")}
+              style={{ fontSize: "14px" }}
+            >
+              {slaExpired
+                ? "SLA Vencido"
+                : `${hoursLeft}h restantes para cumplir SLA`}
+            </p>
+            <p className="text-gray-500 mt-0.5" style={{ fontSize: "13px" }}>
+              Fecha limite:{" "}
+              {new Date(deadline).toLocaleString("es-CL", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Pizza Tracker ---- */}
+      <div className="space-y-2">
+        <h3
+          className="font-semibold text-gray-800"
+          style={{ fontSize: "15px" }}
+        >
+          Progreso
+        </h3>
+        <PizzaTracker
+          steps={EMAIL_PIZZA_STEPS}
+          currentStepIndex={getEmailStepIndex(ticket.status)}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Componente auxiliar                                                  */
+/* ------------------------------------------------------------------ */
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p
+        className="font-medium text-gray-500 uppercase tracking-wide"
+        style={{ fontSize: "13px" }}
+      >
+        {label}
+      </p>
+      <p className="text-gray-900 mt-0.5" style={{ fontSize: "14px" }}>
+        {value}
+      </p>
     </div>
   );
 }

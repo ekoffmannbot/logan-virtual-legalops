@@ -1,23 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, Loader2, DollarSign, Calendar, User } from "lucide-react";
 import { api } from "@/lib/api";
-import { cn, formatDate, formatCurrency } from "@/lib/utils";
-import { PROPOSAL_STATUS_LABELS } from "@/lib/constants";
+import { KanbanBoard } from "@/components/shared/kanban-board";
+import type { KanbanColumn } from "@/components/shared/kanban-board";
+import { Drawer, useDrawer } from "@/components/layout/drawer";
+import { PizzaTracker } from "@/components/shared/pizza-tracker";
+import { Loader2, AlertCircle, FileText } from "lucide-react";
+import { getProcessProgress } from "@/lib/process-status-map";
 import { seguimientoPropuestasProcess } from "@/lib/process-definitions";
-import { ItemCard } from "@/components/shared/item-card";
-import { AgentStatusBar } from "@/components/shared/agent-message";
-import { UrgencySection } from "@/components/shared/urgency-section";
-import { EmptyState } from "@/components/shared/empty-state";
-import {
-  getProcessProgress,
-  computeUrgency,
-  getNextActionLabel,
-  getTimeUntil,
-} from "@/lib/process-status-map";
+import { formatDate, formatCurrency } from "@/lib/utils";
+import { PROPOSAL_STATUS_LABELS } from "@/lib/constants";
+
+/* ------------------------------------------------------------------ */
+/* TIPOS                                                               */
+/* ------------------------------------------------------------------ */
 
 interface Proposal {
   id: number;
@@ -28,52 +26,184 @@ interface Proposal {
   currency: string;
   valid_until: string;
   assigned_to_name: string;
-  created_at: string;
   process_id: string;
-  sent_at?: string;
 }
 
-function isSentOver72h(sentAt?: string): boolean {
-  if (!sentAt) return false;
-  const sent = new Date(sentAt);
-  const now = new Date();
-  const diffHours = (now.getTime() - sent.getTime()) / (1000 * 60 * 60);
-  return diffHours > 72;
+/* ------------------------------------------------------------------ */
+/* HELPERS                                                             */
+/* ------------------------------------------------------------------ */
+
+const STATUS_BADGE_COLORS: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-700",
+  sent: "bg-blue-100 text-blue-800",
+  accepted: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800",
+  expired: "bg-red-100 text-red-800",
+};
+
+/** Formato chileno: $1.800.000 */
+function formatCLP(amount: number | null | undefined): string {
+  if (amount == null) return "";
+  return "$" + amount.toLocaleString("es-CL");
 }
+
+/**
+ * Construye los pasos para el PizzaTracker a partir de la definicion
+ * del proceso de seguimiento de propuestas.
+ */
+function buildPizzaSteps(processId: string, status: string) {
+  const process = seguimientoPropuestasProcess;
+  const taskSteps = process.steps.filter(
+    (s) => s.type !== "start" && s.type !== "end" && s.type !== "decision"
+  );
+
+  const progress = getProcessProgress(
+    processId || "seguimiento-propuestas",
+    status
+  );
+
+  const allSteps = process.steps;
+  const currentStepId =
+    allSteps[progress.current]?.id || allSteps[0]?.id;
+
+  let currentIndex = taskSteps.findIndex((s) => s.id === currentStepId);
+  if (currentIndex === -1) {
+    const currentAllIndex = allSteps.findIndex((s) => s.id === currentStepId);
+    for (let i = currentAllIndex; i >= 0; i--) {
+      const idx = taskSteps.findIndex((s) => s.id === allSteps[i].id);
+      if (idx !== -1) {
+        currentIndex = idx;
+        break;
+      }
+    }
+    if (currentIndex === -1) currentIndex = 0;
+  }
+
+  const steps = taskSteps.map((s) => ({
+    id: s.id,
+    label: s.label,
+    description: s.description,
+  }));
+
+  return { steps, currentIndex, progress };
+}
+
+/* ------------------------------------------------------------------ */
+/* PAGINA                                                              */
+/* ------------------------------------------------------------------ */
 
 export default function ProposalsPage() {
-  const router = useRouter();
-  const [showFlow, setShowFlow] = useState(false);
-
-  const { data, isLoading } = useQuery<{ items: Proposal[]; total: number }>({
+  const { data, isLoading, isError } = useQuery<{
+    items: Proposal[];
+    total: number;
+  }>({
     queryKey: ["proposals"],
     queryFn: () => api.get("/proposals"),
   });
+
   const proposals = data?.items ?? [];
 
-  const borradores = proposals.filter((p) => p.status === "draft");
-  const enviadas = proposals.filter((p) => p.status === "sent");
-  const aceptadas = proposals.filter((p) => p.status === "accepted");
-  const finalizadas = proposals.filter(
-    (p) => p.status === "rejected" || p.status === "expired"
-  );
+  const { isOpen, drawerTitle, drawerContent, openDrawer, closeDrawer } =
+    useDrawer();
 
-  // Agent counts
-  const agentCounts = proposals.reduce(
-    (acc, p) => {
-      const progress = getProcessProgress(
-        p.process_id || "seguimiento-propuestas",
-        p.status
-      );
-      const agent = progress.agentName;
-      if (agent.includes("Jefe")) acc.jefe++;
-      else if (agent.includes("Abogado")) acc.abogado++;
-      else if (agent.includes("Administra")) acc.admin++;
-      return acc;
-    },
-    { jefe: 0, abogado: 0, admin: 0 }
-  );
+  // ----- Transformar propuestas en columnas Kanban -----
+  const columns: KanbanColumn[] = useMemo(() => {
+    const base: KanbanColumn[] = [
+      { id: "draft", title: "Borrador", color: "border-t-gray-400", cards: [] },
+      { id: "sent", title: "Enviada", color: "border-t-blue-500", cards: [] },
+      { id: "accepted", title: "Aceptada", color: "border-t-green-500", cards: [] },
+      { id: "rejected", title: "Rechazada", color: "border-t-red-500", cards: [] },
+    ];
 
+    const colMap = new Map(base.map((c) => [c.id, c]));
+
+    for (const proposal of proposals) {
+      const col = colMap.get(proposal.status);
+      if (!col) continue;
+
+      const statusLabel =
+        PROPOSAL_STATUS_LABELS[proposal.status] || proposal.status;
+
+      col.cards.push({
+        id: String(proposal.id),
+        title: proposal.title,
+        subtitle: proposal.client_name,
+        amount: proposal.amount ? formatCLP(proposal.amount) : undefined,
+        badge: statusLabel,
+        badgeColor:
+          STATUS_BADGE_COLORS[proposal.status] || "bg-gray-100 text-gray-700",
+      });
+    }
+
+    return base;
+  }, [proposals]);
+
+  // ----- Abrir Drawer al hacer click en una tarjeta -----
+  function handleCardClick(cardId: string) {
+    const proposal = proposals.find((p) => String(p.id) === cardId);
+    if (!proposal) return;
+
+    const { steps, currentIndex, progress } = buildPizzaSteps(
+      proposal.process_id,
+      proposal.status
+    );
+
+    const statusLabel =
+      PROPOSAL_STATUS_LABELS[proposal.status] || proposal.status;
+
+    openDrawer(
+      proposal.title,
+      <div className="space-y-6">
+        {/* Progreso visual */}
+        <div>
+          <p className="text-[14px] font-semibold text-gray-700 mb-1">
+            Progreso de la propuesta
+          </p>
+          <p className="text-[13px] text-gray-500 mb-4">
+            Paso {currentIndex + 1} de {steps.length}: {progress.stepLabel}
+          </p>
+          <PizzaTracker
+            steps={steps}
+            currentStepIndex={currentIndex}
+          />
+        </div>
+
+        {/* Detalles de la propuesta */}
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+          <h3 className="text-[15px] font-semibold text-gray-800">
+            Detalles
+          </h3>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Detail label="Cliente" value={proposal.client_name} />
+            <Detail label="Estado" value={statusLabel} />
+            <Detail
+              label="Monto"
+              value={
+                proposal.amount
+                  ? formatCurrency(proposal.amount, proposal.currency)
+                  : "-"
+              }
+            />
+            <Detail
+              label="Valida hasta"
+              value={
+                proposal.valid_until
+                  ? formatDate(proposal.valid_until)
+                  : "-"
+              }
+            />
+            <Detail
+              label="Asignado a"
+              value={proposal.assigned_to_name || "-"}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ----- Estados de carga / error -----
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -82,237 +212,48 @@ export default function ProposalsPage() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-2 text-red-600">
+        <AlertCircle className="h-8 w-8" />
+        <p className="text-[14px]">Error al cargar propuestas</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Propuestas</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Pipeline de propuestas comerciales
-          </p>
-        </div>
-        <button
-          onClick={() => setShowFlow(!showFlow)}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          Ver Flujo
-        </button>
+      {/* ---- HEADER ---- */}
+      <div className="flex items-center gap-3">
+        <FileText className="h-6 w-6 text-gray-700" />
+        <h1 className="text-2xl font-bold text-gray-900">Propuestas</h1>
+        <span className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-gray-200 px-2 text-[13px] font-semibold text-gray-600">
+          {proposals.length}
+        </span>
       </div>
 
-      {/* Process Flow (togglable) */}
-      {showFlow && (
-        <div className="rounded-xl border bg-white p-4">
-          <p className="text-sm text-gray-500 mb-2 font-medium">
-            Flujo: {seguimientoPropuestasProcess.name}
-          </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            {seguimientoPropuestasProcess.steps
-              .filter((s) => s.type !== "start" && s.type !== "end")
-              .map((step, i) => (
-                <div key={step.id} className="flex items-center gap-2">
-                  {i > 0 && <span className="text-gray-300">&rarr;</span>}
-                  <span className="text-xs bg-gray-100 rounded-md px-2 py-1 text-gray-600">
-                    {step.label}
-                  </span>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
+      {/* ---- KANBAN ---- */}
+      <KanbanBoard columns={columns} onCardClick={handleCardClick} />
 
-      {/* Agent Status Bar */}
-      <AgentStatusBar
-        agents={[
-          { name: "Abogado Jefe", count: agentCounts.jefe, color: "purple" },
-          { name: "Abogado", count: agentCounts.abogado, color: "green" },
-          { name: "Administracion", count: agentCounts.admin, color: "amber" },
-        ]}
-      />
+      {/* ---- DRAWER ---- */}
+      <Drawer open={isOpen} onClose={closeDrawer} title={drawerTitle}>
+        {drawerContent}
+      </Drawer>
+    </div>
+  );
+}
 
-      {/* Content */}
-      {proposals.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="No hay propuestas"
-          description="Crea tu primera propuesta comercial para un cliente."
-        />
-      ) : (
-        <div className="space-y-4">
-          {/* Borradores */}
-          {borradores.length > 0 && (
-            <UrgencySection
-              title="Borradores"
-              urgency="normal"
-              count={borradores.length}
-            >
-              <div className="p-3 space-y-3">
-                {borradores.map((p) => {
-                  const progress = getProcessProgress(
-                    p.process_id || "seguimiento-propuestas",
-                    p.status
-                  );
-                  const urgency = computeUrgency(p);
-                  const actionLabel = getNextActionLabel(
-                    "seguimiento-propuestas",
-                    p.status
-                  );
+/* ------------------------------------------------------------------ */
+/* COMPONENTE AUXILIAR                                                  */
+/* ------------------------------------------------------------------ */
 
-                  return (
-                    <ItemCard
-                      key={p.id}
-                      title={p.client_name}
-                      subtitle={p.title}
-                      statusLabel={PROPOSAL_STATUS_LABELS[p.status] || p.status}
-                      urgency={urgency}
-                      progress={progress}
-                      meta={[
-                        { icon: DollarSign, label: formatCurrency(p.amount, p.currency) },
-                        ...(p.assigned_to_name
-                          ? [{ icon: User, label: p.assigned_to_name }]
-                          : []),
-                        { icon: Calendar, label: formatDate(p.created_at) },
-                      ]}
-                      actionLabel={actionLabel}
-                      actionHref={`/proposals/${p.id}`}
-                      href={`/proposals/${p.id}`}
-                    />
-                  );
-                })}
-              </div>
-            </UrgencySection>
-          )}
-
-          {/* Enviadas */}
-          {enviadas.length > 0 && (
-            <UrgencySection
-              title="Enviadas"
-              urgency="warning"
-              count={enviadas.length}
-            >
-              <div className="p-3 space-y-3">
-                {enviadas.map((p) => {
-                  const progress = getProcessProgress(
-                    p.process_id || "seguimiento-propuestas",
-                    p.status
-                  );
-                  const over72h = isSentOver72h(p.sent_at);
-                  const urgency = over72h ? "urgent" as const : computeUrgency(p);
-                  const actionLabel = getNextActionLabel(
-                    "seguimiento-propuestas",
-                    p.status
-                  );
-
-                  return (
-                    <ItemCard
-                      key={p.id}
-                      title={p.client_name}
-                      subtitle={p.title}
-                      statusLabel={PROPOSAL_STATUS_LABELS[p.status] || p.status}
-                      urgency={urgency}
-                      urgencyText={
-                        over72h
-                          ? "Mas de 72h sin respuesta - contactar cliente"
-                          : undefined
-                      }
-                      progress={progress}
-                      meta={[
-                        { icon: DollarSign, label: formatCurrency(p.amount, p.currency) },
-                        ...(p.sent_at
-                          ? [{ icon: Calendar, label: `Enviada: ${formatDate(p.sent_at)}` }]
-                          : []),
-                        ...(p.valid_until
-                          ? [{ label: `Vence: ${getTimeUntil(p.valid_until)}` }]
-                          : []),
-                      ]}
-                      actionLabel={actionLabel}
-                      actionHref={`/proposals/${p.id}`}
-                      href={`/proposals/${p.id}`}
-                    />
-                  );
-                })}
-              </div>
-            </UrgencySection>
-          )}
-
-          {/* Aceptadas */}
-          {aceptadas.length > 0 && (
-            <UrgencySection
-              title="Aceptadas"
-              urgency="normal"
-              count={aceptadas.length}
-            >
-              <div className="p-3 space-y-3">
-                {aceptadas.map((p) => {
-                  const progress = getProcessProgress(
-                    p.process_id || "seguimiento-propuestas",
-                    p.status
-                  );
-                  const actionLabel = getNextActionLabel(
-                    "seguimiento-propuestas",
-                    p.status
-                  );
-
-                  return (
-                    <ItemCard
-                      key={p.id}
-                      title={p.client_name}
-                      subtitle={p.title}
-                      statusLabel={PROPOSAL_STATUS_LABELS[p.status] || p.status}
-                      urgency="normal"
-                      progress={progress}
-                      meta={[
-                        { icon: DollarSign, label: formatCurrency(p.amount, p.currency) },
-                        ...(p.assigned_to_name
-                          ? [{ icon: User, label: p.assigned_to_name }]
-                          : []),
-                      ]}
-                      actionLabel={actionLabel}
-                      actionHref={`/proposals/${p.id}`}
-                      href={`/proposals/${p.id}`}
-                    />
-                  );
-                })}
-              </div>
-            </UrgencySection>
-          )}
-
-          {/* Finalizadas */}
-          {finalizadas.length > 0 && (
-            <UrgencySection
-              title="Finalizadas"
-              urgency="normal"
-              count={finalizadas.length}
-              defaultOpen={false}
-            >
-              <div className="p-3 space-y-3">
-                {finalizadas.map((p) => {
-                  const progress = getProcessProgress(
-                    p.process_id || "seguimiento-propuestas",
-                    p.status
-                  );
-
-                  return (
-                    <ItemCard
-                      key={p.id}
-                      title={p.client_name}
-                      subtitle={p.title}
-                      statusLabel={PROPOSAL_STATUS_LABELS[p.status] || p.status}
-                      urgency="normal"
-                      progress={progress}
-                      meta={[
-                        { icon: DollarSign, label: formatCurrency(p.amount, p.currency) },
-                        { icon: Calendar, label: formatDate(p.created_at) },
-                      ]}
-                      href={`/proposals/${p.id}`}
-                    />
-                  );
-                })}
-              </div>
-            </UrgencySection>
-          )}
-        </div>
-      )}
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[12px] font-medium text-gray-500 uppercase tracking-wide">
+        {label}
+      </p>
+      <p className="text-[14px] text-gray-900 mt-0.5">{value}</p>
     </div>
   );
 }

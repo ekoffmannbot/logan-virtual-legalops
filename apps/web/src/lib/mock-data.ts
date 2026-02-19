@@ -378,6 +378,28 @@ const emailTicketDetail = (id: string) => ({
   ],
 });
 
+// ─── Agent Logs (v3 – agent activity feed) ───
+const agentLogs = [
+  { id: "al1", agentName: "Secretaria", action: "Auto-creó seguimiento para propuesta Sánchez", detail: "Han pasado 72 horas desde el envío. Se programó recordatorio.", timestamp: new Date(Date.now() - 30 * 60000).toISOString(), status: "completed" as const, entityType: "proposal", entityId: "1", actionRequired: false },
+  { id: "al2", agentName: "Jefe Cobranza", action: "Recomienda escalar factura Inmobiliaria Sur", detail: "3 intentos de contacto sin respuesta. Deuda: $1.800.000", timestamp: new Date(Date.now() - 90 * 60000).toISOString(), status: "pending_approval" as const, entityType: "invoice", entityId: "2", actionRequired: true },
+  { id: "al3", agentName: "Abogado", action: "Revisó cláusula de indemnización en contrato Pérez SpA", detail: "Encontró inconsistencia en el monto máximo. Requiere validación.", timestamp: new Date(Date.now() - 2 * 3600000).toISOString(), status: "pending_approval" as const, entityType: "contract", entityId: "1", actionRequired: true },
+  { id: "al4", agentName: "Revisor de Causas", action: "Verificó movimientos en Poder Judicial", detail: "Causa C-1234-2024: sin movimientos nuevos. Causa C-5678-2024: nueva resolución.", timestamp: new Date(Date.now() - 3 * 3600000).toISOString(), status: "completed" as const, entityType: "matter", entityId: "1", actionRequired: false },
+  { id: "al5", agentName: "Secretaria", action: "Clasificó correo del Tribunal Civil como urgente", detail: "Solicitud de copia de expediente con plazo de 48 horas.", timestamp: new Date(Date.now() - 4 * 3600000).toISOString(), status: "completed" as const, entityType: "email_ticket", entityId: "4", actionRequired: false },
+  { id: "al6", agentName: "Abogado", action: "Generó borrador de respuesta para correo Sánchez", detail: "Borrador listo para revisión. Incluye plazo de contestación.", timestamp: new Date(Date.now() - 5 * 3600000).toISOString(), status: "pending_approval" as const, entityType: "email_ticket", entityId: "1", actionRequired: true },
+  { id: "al7", agentName: "Procurador", action: "Confirmó retiro de documento en Notaría 23", detail: "Poder notarial González retirado exitosamente.", timestamp: new Date(Date.now() - 6 * 3600000).toISOString(), status: "completed" as const, entityType: "notary", entityId: "1", actionRequired: false },
+  { id: "al8", agentName: "Comercial", action: "Detectó nuevo lead desde LegalBOT", detail: "Andrés Riquelme - Minera del Norte - Consulta derecho minero", timestamp: new Date(Date.now() - 7 * 3600000).toISOString(), status: "completed" as const, entityType: "lead", entityId: "5", actionRequired: false },
+];
+
+// ─── Calendar Events (v3) ───
+const calendarEvents = [
+  { id: "ev1", title: "Audiencia preparatoria - Rojas c/ Inmobiliaria Sur", date: new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0], time: "09:30", type: "audiencia", location: "2do Juzgado Civil Santiago", matterId: "2", color: "blue" },
+  { id: "ev2", title: "Reunión con cliente - Minera del Norte", date: new Date(Date.now() + 1 * 86400000).toISOString().split("T")[0], time: "11:00", type: "reunion", location: "Oficina Logan", matterId: null, color: "green" },
+  { id: "ev3", title: "Vencimiento poder notarial González", date: new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0], time: null, type: "plazo", location: null, matterId: null, color: "red" },
+  { id: "ev4", title: "Plazo contestación demanda - Pérez SpA", date: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0], time: "23:59", type: "plazo", location: "1er Juzgado Civil Santiago", matterId: "1", color: "red" },
+  { id: "ev5", title: "Seguimiento propuesta Sánchez", date: new Date(Date.now() + 1 * 86400000).toISOString().split("T")[0], time: "15:00", type: "seguimiento", location: null, matterId: null, color: "yellow" },
+  { id: "ev6", title: "Audiencia de juicio - Despido Muñoz", date: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0], time: "10:00", type: "audiencia", location: "1er Juzgado del Trabajo", matterId: "4", color: "blue" },
+];
+
 // ─── Route matcher ───
 export function isDemoMode(): boolean {
   if (typeof window === "undefined") return false;
@@ -455,6 +477,12 @@ export function getMockData(path: string): any {
   if (cleanPath === "/ai/chat" || cleanPath === "/ai/draft-email" || cleanPath === "/ai/draft-proposal" || cleanPath === "/ai/summarize-case") {
     return { response: "Esta es una respuesta de demostración del asistente AI. En producción, esto estará conectado al modelo de lenguaje." };
   }
+
+  // Agent Logs (v3)
+  if (cleanPath === "/agent-logs") return agentLogs;
+
+  // Calendar Events (v3)
+  if (cleanPath === "/calendar/events") return calendarEvents;
 
   // Default: return empty
   return null;

@@ -3,8 +3,7 @@
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Sidebar } from "@/components/layout/sidebar";
-import { Topbar } from "@/components/layout/topbar";
+import { SidebarRail } from "@/components/layout/sidebar-rail";
 
 export default function DashboardLayout({
   children,
@@ -24,8 +23,8 @@ export default function DashboardLayout({
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Cargando...</p>
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+          <p className="text-sm text-gray-500">Cargando...</p>
         </div>
       </div>
     );
@@ -34,12 +33,9 @@ export default function DashboardLayout({
   if (!isAuthenticated) return null;
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <Sidebar />
-      <div className="ml-64">
-        <Topbar />
-        <main className="p-6">{children}</main>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <SidebarRail />
+      <main className="ml-16 min-h-screen p-6">{children}</main>
     </div>
   );
 }

@@ -1,31 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  DollarSign,
-  Search,
-  Receipt,
-  AlertCircle,
-  TrendingUp,
-  Calendar,
-  Loader2,
-  Eye,
-} from "lucide-react";
 import { api } from "@/lib/api";
-import { cn, formatDate, formatCurrency } from "@/lib/utils";
-import { INVOICE_STATUS_LABELS } from "@/lib/constants";
-import { computeUrgency, getNextActionLabel } from "@/lib/process-status-map";
-import { ItemCard } from "@/components/shared/item-card";
-import { AgentStatusBar } from "@/components/shared/agent-message";
-import { UrgencySection } from "@/components/shared/urgency-section";
-import { StatCard } from "@/components/shared/stat-card";
-import { EmptyState } from "@/components/shared/empty-state";
-import { ProcessFlow } from "@/components/shared/process-flow";
+import { InboxItem } from "@/components/shared/inbox-item";
+import { Drawer, useDrawer } from "@/components/layout/drawer";
+import { PizzaTracker } from "@/components/shared/pizza-tracker";
+import {
+  getProcessProgress,
+  getNextActionLabel,
+  computeUrgency,
+  getTimeUntil,
+} from "@/lib/process-status-map";
+import { COLLECTION_STATUS_LABELS, INVOICE_STATUS_LABELS } from "@/lib/constants";
 import { procesoCobranzaProcess } from "@/lib/process-definitions";
+import { formatDate } from "@/lib/utils";
+import { DollarSign, Loader2, AlertTriangle, CreditCard } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
-/* Types                                                               */
+/* Tipos                                                               */
 /* ------------------------------------------------------------------ */
 
 interface Invoice {
@@ -42,227 +35,361 @@ interface Invoice {
   process_id: string;
 }
 
-interface CollectionStats {
-  total_invoices: number;
-  total_outstanding: number;
-  overdue_count: number;
-  overdue_amount: number;
-  collection_rate: number;
-}
+/* ------------------------------------------------------------------ */
+/* Filtros                                                             */
+/* ------------------------------------------------------------------ */
+
+type FilterKey = "todos" | "vencidas" | "por_vencer" | "pagadas";
+
+const FILTER_CHIPS: { key: FilterKey; label: string }[] = [
+  { key: "todos", label: "Todos" },
+  { key: "vencidas", label: "Vencidas" },
+  { key: "por_vencer", label: "Por Vencer" },
+  { key: "pagadas", label: "Pagadas" },
+];
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-function getDaysDiff(dateStr: string): number {
-  const now = new Date();
-  const target = new Date(dateStr);
-  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+/** Formato chileno: $1.800.000 */
+function formatCLP(amount: number | null | undefined): string {
+  if (amount == null) return "$0";
+  return "$" + amount.toLocaleString("es-CL");
 }
 
-function getUrgencyText(invoice: Invoice): string {
-  const days = getDaysDiff(invoice.due_date);
-  if (days < 0) {
-    const absDays = Math.abs(days);
-    return `Vencida hace ${absDays} dia${absDays !== 1 ? "s" : ""}`;
-  }
-  if (days === 0) return "Vence hoy";
-  return `Vence en ${days} dia${days !== 1 ? "s" : ""}`;
-}
-
-function getActionLabel(invoice: Invoice): string {
-  switch (invoice.status) {
+/** Icon background por status */
+function getIconBg(status: string): string {
+  switch (status) {
     case "overdue":
-      return "Cobrar Hoy";
+      return "bg-red-100";
     case "due":
-      return "Cobrar Hoy";
+      return "bg-yellow-100";
     case "paid":
-      return "Verificar Pago";
+      return "bg-green-100";
+    default:
+      return "bg-blue-100";
+  }
+}
+
+/** Icon color por status */
+function getIconColor(status: string): string {
+  switch (status) {
+    case "overdue":
+      return "text-red-600";
+    case "due":
+      return "text-yellow-600";
+    case "paid":
+      return "text-green-600";
+    default:
+      return "text-blue-600";
+  }
+}
+
+/** Badge color por status */
+function getBadgeColor(status: string): string {
+  switch (status) {
+    case "overdue":
+      return "bg-red-100 text-red-800";
+    case "due":
+      return "bg-yellow-100 text-yellow-800";
+    case "paid":
+      return "bg-green-100 text-green-800";
     case "scheduled":
-      return "Ver";
+      return "bg-blue-100 text-blue-800";
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
+}
+
+/** Action label por status */
+function getActionLabel(status: string): string {
+  switch (status) {
+    case "overdue":
+      return "Gestionar Cobro";
+    case "due":
+      return "Verificar";
+    case "paid":
+      return "Ver Detalle";
     default:
       return "Ver Detalle";
   }
 }
 
+/**
+ * Construye los pasos para el PizzaTracker a partir del proceso de cobranza.
+ */
+function buildPizzaSteps(processId: string, status: string) {
+  const process = procesoCobranzaProcess;
+  const taskSteps = process.steps.filter(
+    (s) => s.type !== "start" && s.type !== "end" && s.type !== "decision",
+  );
+
+  const progress = getProcessProgress(
+    processId || "proceso-cobranza",
+    status,
+  );
+
+  const allSteps = process.steps;
+  const currentStepId = allSteps[progress.current]?.id || allSteps[0]?.id;
+
+  let currentIndex = taskSteps.findIndex((s) => s.id === currentStepId);
+  if (currentIndex === -1) {
+    const currentAllIndex = allSteps.findIndex((s) => s.id === currentStepId);
+    for (let i = currentAllIndex; i >= 0; i--) {
+      const idx = taskSteps.findIndex((s) => s.id === allSteps[i].id);
+      if (idx !== -1) {
+        currentIndex = idx;
+        break;
+      }
+    }
+    if (currentIndex === -1) currentIndex = 0;
+  }
+
+  const steps = taskSteps.map((s) => ({
+    id: s.id,
+    label: s.label,
+    description: s.description,
+  }));
+
+  return { steps, currentIndex, progress };
+}
+
 /* ------------------------------------------------------------------ */
-/* Page                                                                */
+/* Pagina                                                              */
 /* ------------------------------------------------------------------ */
 
 export default function CollectionsPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showProcess, setShowProcess] = useState(false);
+  const [filter, setFilter] = useState<FilterKey>("todos");
+  const { isOpen, drawerTitle, drawerContent, openDrawer, closeDrawer } =
+    useDrawer();
 
-  // ----- Data fetching -----
+  /* ---- Fetch ---- */
   const {
     data: invoices = [],
-    isLoading: loadingInvoices,
+    isLoading,
+    isError,
   } = useQuery({
     queryKey: ["collections", "invoices"],
     queryFn: () => api.get<Invoice[]>("/collections/invoices"),
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ["collections", "stats"],
-    queryFn: () => api.get<CollectionStats>("/collections/stats"),
-  });
+  /* ---- Filtrado ---- */
+  const filtered = useMemo(() => {
+    switch (filter) {
+      case "vencidas":
+        return invoices.filter((inv) => inv.status === "overdue");
+      case "por_vencer":
+        return invoices.filter((inv) => inv.status === "due");
+      case "pagadas":
+        return invoices.filter((inv) => inv.status === "paid");
+      default:
+        return invoices;
+    }
+  }, [invoices, filter]);
 
-  // ----- Filter by search -----
-  const filtered = invoices.filter(
-    (inv) =>
-      inv.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  /* ---- Abrir drawer ---- */
+  function handleOpen(invoice: Invoice) {
+    const { steps, currentIndex, progress } = buildPizzaSteps(
+      invoice.process_id,
+      invoice.status,
+    );
 
-  // ----- Group into urgency buckets -----
-  const overdue = filtered.filter((inv) => inv.status === "overdue");
-  const due = filtered.filter((inv) => inv.status === "due");
-  const rest = filtered.filter(
-    (inv) => inv.status !== "overdue" && inv.status !== "due",
-  );
+    openDrawer(
+      `Factura ${invoice.invoice_number}`,
+      <InvoiceDetail
+        invoice={invoice}
+        steps={steps}
+        currentIndex={currentIndex}
+        progress={progress}
+      />,
+    );
+  }
 
-  // ----- Agent counts for status bar -----
-  const secretariaCount = filtered.filter(
-    (inv) => inv.status === "scheduled" || inv.status === "due",
-  ).length;
-  const jefeCobranzaCount = filtered.filter(
-    (inv) => inv.status === "overdue",
-  ).length;
-
-  // ----- Loading state -----
-  if (loadingInvoices) {
+  /* ---- Loading ---- */
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
+  /* ---- Error ---- */
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+        <AlertTriangle className="h-10 w-10 text-red-500" />
+        <p className="font-medium text-gray-800" style={{ fontSize: "16px" }}>
+          Error al cargar facturas
+        </p>
+      </div>
+    );
+  }
+
+  /* ---- Render ---- */
   return (
-    <div className="space-y-6">
-      {/* ---- Header ---- */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cobranza</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Gestion de facturas y cobranza del estudio
+    <div className="space-y-5">
+      {/* ============ HEADER ============ */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+          <DollarSign className="h-5 w-5 text-green-600" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900" style={{ fontSize: "24px" }}>
+          Cobranza
+        </h1>
+        <span
+          className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-700 px-2.5 py-0.5 font-semibold"
+          style={{ fontSize: "13px" }}
+        >
+          {invoices.length}
+        </span>
+      </div>
+
+      {/* ============ FILTER CHIPS ============ */}
+      <div className="flex flex-wrap gap-2">
+        {FILTER_CHIPS.map((chip) => {
+          const active = filter === chip.key;
+          return (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={() => setFilter(chip.key)}
+              className={[
+                "rounded-full px-4 py-1.5 font-medium transition-colors",
+                active
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200",
+              ].join(" ")}
+              style={{ fontSize: "14px" }}
+            >
+              {chip.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ============ LISTA / EMPTY ============ */}
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
+            <DollarSign className="h-8 w-8 text-gray-400" />
+          </div>
+          <p className="font-medium text-gray-700" style={{ fontSize: "16px" }}>
+            No hay facturas en esta categoria
+          </p>
+          <p className="text-gray-500 mt-1" style={{ fontSize: "14px" }}>
+            Seleccione otro filtro o espere nuevas facturas.
           </p>
         </div>
-        <button
-          onClick={() => setShowProcess(!showProcess)}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <Eye className="h-4 w-4" />
-          Ver Flujo
-        </button>
-      </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {filtered.map((invoice) => {
+            const statusLabel =
+              INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status;
 
-      {/* ---- Process Flow (togglable) ---- */}
-      {showProcess && <ProcessFlow process={procesoCobranzaProcess} />}
-
-      {/* ---- Stats Row ---- */}
-      {stats && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Total facturas"
-            value={stats.total_invoices}
-            icon={Receipt}
-          />
-          <StatCard
-            title="Deuda pendiente"
-            value={formatCurrency(stats.total_outstanding)}
-            icon={DollarSign}
-            variant="warning"
-          />
-          <StatCard
-            title="Vencidas"
-            value={stats.overdue_count}
-            description={formatCurrency(stats.overdue_amount)}
-            icon={AlertCircle}
-            variant="danger"
-          />
-          <StatCard
-            title="Tasa cobro"
-            value={`${stats.collection_rate}%`}
-            icon={TrendingUp}
-            variant="success"
-          />
+            return (
+              <InboxItem
+                key={invoice.id}
+                id={String(invoice.id)}
+                icon={<DollarSign className="h-5 w-5" />}
+                iconBg={getIconBg(invoice.status)}
+                iconColor={getIconColor(invoice.status)}
+                title={`${invoice.invoice_number} \u00B7 ${invoice.client_name}`}
+                subtitle={formatCLP(invoice.amount)}
+                badge={statusLabel}
+                badgeColor={getBadgeColor(invoice.status)}
+                timeText={invoice.due_date ? getTimeUntil(invoice.due_date) : ""}
+                timeUrgent={invoice.status === "overdue"}
+                actionLabel={getActionLabel(invoice.status)}
+                onAction={() => handleOpen(invoice)}
+                onCardClick={() => handleOpen(invoice)}
+              />
+            );
+          })}
         </div>
       )}
 
-      {/* ---- Agent Status Bar ---- */}
-      <AgentStatusBar
-        agents={[
-          { name: "Secretaria", count: secretariaCount, color: "blue" },
-          { name: "Jefe Cobranza", count: jefeCobranzaCount, color: "rose" },
-        ]}
-      />
+      {/* ============ DRAWER ============ */}
+      <Drawer open={isOpen} onClose={closeDrawer} title={drawerTitle}>
+        {drawerContent}
+      </Drawer>
+    </div>
+  );
+}
 
-      {/* ---- Search ---- */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Buscar por cliente o numero de factura..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
+/* ------------------------------------------------------------------ */
+/* Drawer content                                                      */
+/* ------------------------------------------------------------------ */
+
+function InvoiceDetail({
+  invoice,
+  steps,
+  currentIndex,
+  progress,
+}: {
+  invoice: Invoice;
+  steps: { id: string; label: string; description?: string }[];
+  currentIndex: number;
+  progress: ReturnType<typeof getProcessProgress>;
+}) {
+  const balance = invoice.amount - invoice.amount_paid;
+  const statusLabel =
+    INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status;
+
+  return (
+    <div className="space-y-6">
+      {/* ---- Progreso ---- */}
+      <div>
+        <p className="font-semibold text-gray-700 mb-1" style={{ fontSize: "14px" }}>
+          Progreso de cobranza
+        </p>
+        <p className="text-gray-500 mb-4" style={{ fontSize: "13px" }}>
+          Paso {currentIndex + 1} de {steps.length}: {progress.stepLabel}
+        </p>
+        <PizzaTracker steps={steps} currentStepIndex={currentIndex} />
       </div>
 
-      {/* ---- Empty state ---- */}
-      {filtered.length === 0 && (
-        <EmptyState
-          icon={Receipt}
-          title="No hay facturas"
-          description="No se encontraron facturas con los filtros aplicados."
-        />
-      )}
+      {/* ---- Datos de la factura ---- */}
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+        <h3 className="font-semibold text-gray-800" style={{ fontSize: "15px" }}>
+          Datos de la Factura
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          <Detail label="Cliente" value={invoice.client_name} />
+          <Detail label="Estado" value={statusLabel} />
+          <Detail label="Monto total" value={formatCLP(invoice.amount)} />
+          <Detail label="Pagado" value={formatCLP(invoice.amount_paid)} />
+          <Detail
+            label="Pendiente"
+            value={formatCLP(balance)}
+            highlight={balance > 0}
+          />
+          <Detail label="Moneda" value={invoice.currency || "CLP"} />
+          <Detail label="Fecha emision" value={formatDate(invoice.issued_date)} />
+          <Detail label="Fecha vencimiento" value={formatDate(invoice.due_date)} />
+        </div>
+      </div>
 
-      {/* ---- Urgency Groups ---- */}
-      {filtered.length > 0 && (
-        <div className="space-y-4">
-          {/* VENCIDAS */}
-          {overdue.length > 0 && (
-            <UrgencySection
-              title="VENCIDAS"
-              urgency="urgent"
-              count={overdue.length}
-              defaultOpen
-            >
-              {overdue.map((inv) => (
-                <InvoiceCard key={inv.id} invoice={inv} />
-              ))}
-            </UrgencySection>
-          )}
-
-          {/* POR VENCER */}
-          {due.length > 0 && (
-            <UrgencySection
-              title="POR VENCER"
-              urgency="warning"
-              count={due.length}
-              defaultOpen
-            >
-              {due.map((inv) => (
-                <InvoiceCard key={inv.id} invoice={inv} />
-              ))}
-            </UrgencySection>
-          )}
-
-          {/* AL DIA */}
-          {rest.length > 0 && (
-            <UrgencySection
-              title="AL DIA"
-              urgency="normal"
-              count={rest.length}
-              defaultOpen={overdue.length === 0 && due.length === 0}
-            >
-              {rest.map((inv) => (
-                <InvoiceCard key={inv.id} invoice={inv} />
-              ))}
-            </UrgencySection>
-          )}
+      {/* ---- Historial de pagos ---- */}
+      {invoice.amount_paid > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+          <h3 className="font-semibold text-gray-800" style={{ fontSize: "15px" }}>
+            Historial de Pagos
+          </h3>
+          <div className="flex items-center gap-3 rounded-lg bg-white border border-gray-100 p-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+              <CreditCard className="h-4 w-4 text-green-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-900" style={{ fontSize: "14px" }}>
+                Abono registrado
+              </p>
+              <p className="text-gray-500" style={{ fontSize: "13px" }}>
+                {formatCLP(invoice.amount_paid)}
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -270,40 +397,35 @@ export default function CollectionsPage() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Invoice Card sub-component                                          */
+/* Componente auxiliar                                                  */
 /* ------------------------------------------------------------------ */
 
-function InvoiceCard({ invoice }: { invoice: Invoice }) {
-  const urgency = computeUrgency(invoice);
-  const balance = invoice.amount - invoice.amount_paid;
-
+function Detail({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
   return (
-    <ItemCard
-      title={invoice.client_name}
-      subtitle={`#${invoice.invoice_number}`}
-      urgency={urgency}
-      urgencyText={getUrgencyText(invoice)}
-      statusLabel={INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
-      statusKey={invoice.status}
-      meta={[
-        { icon: Calendar, label: `Emitida ${formatDate(invoice.issued_date)}` },
-        { icon: Calendar, label: `Vence ${formatDate(invoice.due_date)}` },
-      ]}
-      actionLabel={getActionLabel(invoice)}
-      actionHref={`/collections/${invoice.id}`}
-      href={`/collections/${invoice.id}`}
-    >
-      {/* Big amount display */}
-      <div className="flex items-baseline gap-3">
-        <span className="text-lg font-bold text-gray-900">
-          {formatCurrency(balance, invoice.currency)}
-        </span>
-        {invoice.amount_paid > 0 && (
-          <span className="text-xs text-gray-500">
-            de {formatCurrency(invoice.amount, invoice.currency)}
-          </span>
-        )}
-      </div>
-    </ItemCard>
+    <div>
+      <p
+        className="font-medium text-gray-500 uppercase tracking-wide"
+        style={{ fontSize: "13px" }}
+      >
+        {label}
+      </p>
+      <p
+        className={[
+          "mt-0.5",
+          highlight ? "font-semibold text-red-700" : "text-gray-900",
+        ].join(" ")}
+        style={{ fontSize: "14px" }}
+      >
+        {value}
+      </p>
+    </div>
   );
 }
