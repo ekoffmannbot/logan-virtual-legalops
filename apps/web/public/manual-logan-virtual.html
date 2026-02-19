@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual de Usuario - Logan Virtual</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #1a1a2e;
+      background: #fff;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    @media print {
+      body { font-size: 12px; }
+      .page-break { page-break-before: always; }
+      .no-print { display: none; }
+      @page { margin: 1.5cm; size: letter; }
+    }
+
+    /* ============================================================ */
+    /* COVER PAGE                                                    */
+    /* ============================================================ */
+    .cover {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 50%, #3b82f6 100%);
+      color: white;
+      text-align: center;
+      padding: 60px 40px;
+    }
+    .cover-logo {
+      width: 100px;
+      height: 100px;
+      background: white;
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 42px;
+      font-weight: 800;
+      color: #2563eb;
+      margin-bottom: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .cover h1 {
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+    }
+    .cover .subtitle {
+      font-size: 22px;
+      font-weight: 300;
+      opacity: 0.9;
+      margin-bottom: 60px;
+    }
+    .cover .meta {
+      font-size: 14px;
+      opacity: 0.7;
+      line-height: 2;
+    }
+
+    /* ============================================================ */
+    /* CONTENT PAGES                                                 */
+    /* ============================================================ */
+    .content {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 40px;
+    }
+
+    h2 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #1e3a5f;
+      margin-bottom: 8px;
+      margin-top: 48px;
+      letter-spacing: -0.5px;
+    }
+    h2:first-child { margin-top: 0; }
+
+    h3 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #2563eb;
+      margin-top: 32px;
+      margin-bottom: 12px;
+    }
+
+    h4 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #334155;
+      margin-top: 24px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin-bottom: 12px;
+      color: #475569;
+      font-size: 14px;
+    }
+
+    .lead {
+      font-size: 16px;
+      color: #64748b;
+      margin-bottom: 24px;
+      font-weight: 300;
+    }
+
+    /* Divider */
+    hr {
+      border: none;
+      border-top: 2px solid #e2e8f0;
+      margin: 40px 0;
+    }
+
+    /* ============================================================ */
+    /* TABLE OF CONTENTS                                             */
+    /* ============================================================ */
+    .toc {
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 32px;
+    }
+    .toc h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+    .toc-list {
+      list-style: none;
+      counter-reset: toc;
+    }
+    .toc-list li {
+      counter-increment: toc;
+      padding: 10px 0;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 15px;
+    }
+    .toc-list li:last-child { border-bottom: none; }
+    .toc-list li::before {
+      content: counter(toc);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    /* ============================================================ */
+    /* INFO BOXES                                                    */
+    /* ============================================================ */
+    .tip-box {
+      background: #eff6ff;
+      border-left: 4px solid #2563eb;
+      border-radius: 0 12px 12px 0;
+      padding: 16px 20px;
+      margin: 20px 0;
+    }
+    .tip-box .tip-title {
+      font-weight: 700;
+      color: #2563eb;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .tip-box p { margin-bottom: 0; color: #1e40af; }
+
+    .warning-box {
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      border-radius: 0 12px 12px 0;
+      padding: 16px 20px;
+      margin: 20px 0;
+    }
+    .warning-box .tip-title {
+      font-weight: 700;
+      color: #d97706;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .warning-box p { margin-bottom: 0; color: #92400e; }
+
+    /* ============================================================ */
+    /* VISUAL ELEMENTS                                               */
+    /* ============================================================ */
+
+    /* Simulated sidebar rail */
+    .sim-rail {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px 10px;
+      width: 72px;
+    }
+    .sim-rail-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 6px;
+      border-radius: 8px;
+      font-size: 10px;
+      font-weight: 500;
+      color: #94a3b8;
+      width: 56px;
+      text-align: center;
+    }
+    .sim-rail-item.active {
+      background: #dbeafe;
+      color: #2563eb;
+    }
+    .sim-rail-item .icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .sim-rail-item.active .icon {
+      background: #2563eb;
+      color: white;
+    }
+
+    /* Simulated inbox card */
+    .sim-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 8px 0;
+      transition: box-shadow 0.2s;
+    }
+    .sim-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .sim-card .circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .sim-card .circle.red { background: #fee2e2; color: #dc2626; }
+    .sim-card .circle.yellow { background: #fef3c7; color: #d97706; }
+    .sim-card .circle.blue { background: #dbeafe; color: #2563eb; }
+    .sim-card .circle.green { background: #dcfce7; color: #16a34a; }
+    .sim-card .card-text { flex: 1; min-width: 0; }
+    .sim-card .card-title { font-weight: 600; font-size: 15px; color: #1a1a2e; }
+    .sim-card .card-sub { font-size: 13px; color: #94a3b8; margin-top: 2px; }
+    .sim-card .card-btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .sim-card .badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 99px;
+      margin-left: 8px;
+    }
+    .badge.red { background: #fee2e2; color: #dc2626; }
+    .badge.yellow { background: #fef3c7; color: #d97706; }
+    .badge.blue { background: #dbeafe; color: #2563eb; }
+    .badge.green { background: #dcfce7; color: #16a34a; }
+
+    /* Pizza tracker simulation */
+    .sim-tracker {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 24px;
+      margin: 16px 0;
+    }
+    .sim-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .sim-step .dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: white;
+    }
+    .sim-step .dot.done { background: #22c55e; }
+    .sim-step .dot.current { background: #2563eb; box-shadow: 0 0 0 6px rgba(37,99,235,0.2); }
+    .sim-step .dot.future { background: #e2e8f0; color: #94a3b8; }
+    .sim-step .step-label { font-size: 11px; font-weight: 500; color: #64748b; text-align: center; max-width: 80px; }
+    .sim-step .step-label.done { color: #22c55e; font-weight: 600; }
+    .sim-step .step-label.current { color: #2563eb; font-weight: 700; }
+    .sim-connector {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      margin: 0 4px;
+      margin-bottom: 22px;
+    }
+    .sim-connector.done { background: #22c55e; }
+    .sim-connector.current { background: #2563eb; }
+    .sim-connector.future { background: #e2e8f0; }
+
+    /* Kanban */
+    .sim-kanban {
+      display: flex;
+      gap: 12px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+    .sim-kanban-col {
+      flex: 1;
+      min-width: 140px;
+      background: #f8fafc;
+      border-radius: 12px;
+      border-top: 4px solid;
+      padding: 12px;
+    }
+    .sim-kanban-col h5 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 8px;
+    }
+    .sim-kanban-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .sim-kanban-card .k-title { font-weight: 600; color: #1a1a2e; }
+    .sim-kanban-card .k-sub { color: #94a3b8; margin-top: 2px; }
+    .sim-kanban-card .k-amount { font-weight: 700; color: #1a1a2e; text-align: right; margin-top: 4px; }
+
+    /* Steps list */
+    .steps-list {
+      list-style: none;
+      counter-reset: steps;
+      margin: 16px 0;
+    }
+    .steps-list li {
+      counter-increment: steps;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 12px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .steps-list li:last-child { border-bottom: none; }
+    .steps-list li::before {
+      content: counter(steps);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #eff6ff;
+      color: #2563eb;
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    /* Approve panel sim */
+    .sim-approve {
+      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 16px 0;
+    }
+    .sim-approve .agent-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #eff6ff;
+      border-left: 4px solid #2563eb;
+      border-radius: 0 8px 8px 0;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+    }
+    .sim-approve .agent-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #dbeafe;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sim-approve .content-area {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      color: #475569;
+    }
+    .sim-approve .btn-row {
+      display: flex;
+      gap: 10px;
+    }
+    .sim-approve .btn-row button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      color: white;
+      cursor: pointer;
+    }
+    .btn-approve { background: #22c55e; }
+    .btn-modify { background: #f59e0b; }
+    .btn-reject { background: #ef4444; }
+
+    /* Quick reference table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+    th {
+      background: #f8fafc;
+      text-align: left;
+      padding: 10px 14px;
+      font-weight: 700;
+      color: #1e3a5f;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #475569;
+    }
+    tr:hover td { background: #f8fafc; }
+
+    /* Print button */
+    .print-bar {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 100;
+    }
+    .print-btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 28px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(37,99,235,0.4);
+    }
+    .print-btn:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- PRINT BUTTON                                                  -->
+<!-- ============================================================ -->
+<div class="print-bar no-print">
+  <button class="print-btn" onclick="window.print()">
+    Descargar como PDF
+  </button>
+</div>
+
+<!-- ============================================================ -->
+<!-- COVER PAGE                                                    -->
+<!-- ============================================================ -->
+<div class="cover">
+  <div class="cover-logo">LV</div>
+  <h1>Logan Virtual</h1>
+  <div class="subtitle">Manual de Usuario</div>
+  <div class="meta">
+    LegalOps OS para Logan &amp; Logan Abogados<br>
+    Versi&oacute;n 3.0 &mdash; 2026<br>
+    <br>
+    <em>&ldquo;Tan simple que tu abuela lo puede usar&rdquo;</em>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TABLE OF CONTENTS                                             -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <div class="toc">
+    <h2>Contenido</h2>
+    <ol class="toc-list">
+      <li>Primeros pasos &mdash; C&oacute;mo entrar al sistema</li>
+      <li>La barra lateral &mdash; Los 5 botones que necesitas</li>
+      <li>Inicio &mdash; Tu bandeja del d&iacute;a</li>
+      <li>Mis Cosas &mdash; Todo tu trabajo en un solo lugar</li>
+      <li>Calendario &mdash; Tu agenda de la semana</li>
+      <li>Agentes &mdash; Los robots que trabajan para ti</li>
+      <li>El Drawer &mdash; Ver detalle sin perder el contexto</li>
+      <li>El Pizza Tracker &mdash; Saber en qu&eacute; paso va cada caso</li>
+      <li>Aprobar trabajo de agentes</li>
+      <li>Revisi&oacute;n de Causas &mdash; Paso a paso</li>
+      <li>Contratos y Propuestas &mdash; Tablero Kanban</li>
+      <li>Las dem&aacute;s p&aacute;ginas</li>
+      <li>Referencia r&aacute;pida</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 1. PRIMEROS PASOS                                             -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>1. Primeros pasos</h2>
+  <p class="lead">C&oacute;mo entrar a Logan Virtual por primera vez.</p>
+
+  <h3>Acceder al sistema</h3>
+  <ol class="steps-list">
+    <li>
+      <div>
+        <strong>Abrir el navegador</strong><br>
+        Abre Google Chrome, Firefox o Edge en tu computador. Escribe la direcci&oacute;n del sistema en la barra de arriba.
+      </div>
+    </li>
+    <li>
+      <div>
+        <strong>Entrar en modo demo</strong><br>
+        Haz clic en el bot&oacute;n azul <strong>&ldquo;Entrar en modo demo&rdquo;</strong>. No necesitas contrase&ntilde;a. Esto te lleva directamente al panel principal.
+      </div>
+    </li>
+    <li>
+      <div>
+        <strong>&iexcl;Listo!</strong><br>
+        Ver&aacute;s la pantalla de Inicio con tu nombre y las tareas pendientes del d&iacute;a. Ya puedes empezar a trabajar.
+      </div>
+    </li>
+  </ol>
+
+  <div class="tip-box">
+    <div class="tip-title">Consejo</div>
+    <p>Puedes guardar la p&aacute;gina como favorito en tu navegador para acceder m&aacute;s r&aacute;pido la pr&oacute;xima vez.</p>
+  </div>
+
+  <h3>Cerrar sesi&oacute;n</h3>
+  <p>Para salir, pasa el mouse sobre tus iniciales en la parte inferior de la barra izquierda. Aparecer&aacute; un icono de &ldquo;salir&rdquo;. Haz clic para cerrar sesi&oacute;n.</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- 2. LA BARRA LATERAL                                           -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>2. La barra lateral</h2>
+  <p class="lead">Solo 5 botones. Nada m&aacute;s. Nada menos.</p>
+
+  <p>A la izquierda de tu pantalla hay una barra angosta con 5 iconos. Es lo &uacute;nico que necesitas para navegar por todo el sistema:</p>
+
+  <div style="display: flex; gap: 40px; align-items: flex-start; margin: 24px 0;">
+    <!-- Rail visual -->
+    <div class="sim-rail">
+      <div style="font-weight:800; color:#2563eb; font-size:16px; padding:8px 0; border-bottom:1px solid #e2e8f0; width:100%; text-align:center;">LV</div>
+      <div class="sim-rail-item active">
+        <div class="icon">&#127968;</div>
+        Inicio
+      </div>
+      <div class="sim-rail-item">
+        <div class="icon">&#128229;</div>
+        Mis Cosas
+      </div>
+      <div class="sim-rail-item">
+        <div class="icon">&#128197;</div>
+        Calendario
+      </div>
+      <div class="sim-rail-item">
+        <div class="icon">&#129302;</div>
+        Agentes
+      </div>
+      <div class="sim-rail-item">
+        <div class="icon">&#9881;</div>
+        Config
+      </div>
+    </div>
+
+    <!-- Descriptions -->
+    <div style="flex:1;">
+      <table>
+        <tr>
+          <th style="width:120px;">Bot&oacute;n</th>
+          <th>Para qu&eacute; sirve</th>
+        </tr>
+        <tr>
+          <td><strong>&#127968; Inicio</strong></td>
+          <td>Tu resumen del d&iacute;a: qu&eacute; es urgente, qu&eacute; hacer hoy, qu&eacute; est&aacute; en progreso.</td>
+        </tr>
+        <tr>
+          <td><strong>&#128229; Mis Cosas</strong></td>
+          <td>TODAS las entidades del estudio (leads, correos, contratos, causas, facturas, etc.) en una sola lista filtrable.</td>
+        </tr>
+        <tr>
+          <td><strong>&#128197; Calendario</strong></td>
+          <td>Tu agenda: audiencias, reuniones, plazos y seguimientos organizados por fecha.</td>
+        </tr>
+        <tr>
+          <td><strong>&#129302; Agentes</strong></td>
+          <td>Ver qu&eacute; han hecho los agentes de IA y aprobar o rechazar su trabajo.</td>
+        </tr>
+        <tr>
+          <td><strong>&#9881; Config</strong></td>
+          <td>Configuraci&oacute;n del sistema, usuarios y plantillas.</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="tip-box">
+    <div class="tip-title">Consejo</div>
+    <p>El bot&oacute;n activo se resalta en azul. Siempre sabes d&oacute;nde est&aacute;s mirando cu&aacute;l est&aacute; iluminado.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 3. INICIO                                                     -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>3. Inicio &mdash; Tu bandeja del d&iacute;a</h2>
+  <p class="lead">Lo primero que ves al entrar. El sistema te dice exactamente qu&eacute; hacer.</p>
+
+  <h3>&iquest;Qu&eacute; veo aqu&iacute;?</h3>
+  <p>La pantalla de Inicio funciona como una <strong>bandeja de entrada</strong> (como un email). Muestra todas las cosas que requieren tu atenci&oacute;n, ordenadas por urgencia:</p>
+
+  <!-- Example cards -->
+  <div class="sim-card">
+    <div class="circle red">&#9888;</div>
+    <div class="card-text">
+      <div class="card-title">Factura vencida: Inmobiliaria Sur <span class="badge red">Urgente</span></div>
+      <div class="card-sub">FAC-002 &middot; $1.800.000 &middot; Vencida hace 2 d&iacute;as</div>
+    </div>
+    <button class="card-btn">Gestionar Cobro</button>
+  </div>
+
+  <div class="sim-card">
+    <div class="circle yellow">&#128197;</div>
+    <div class="card-text">
+      <div class="card-title">Revisi&oacute;n diaria de causas <span class="badge yellow">Hoy</span></div>
+      <div class="card-sub">4 causas pendientes de revisi&oacute;n</div>
+    </div>
+    <button class="card-btn">Iniciar Revisi&oacute;n</button>
+  </div>
+
+  <div class="sim-card">
+    <div class="circle blue">&#128188;</div>
+    <div class="card-text">
+      <div class="card-title">Contrato P&eacute;rez SpA <span class="badge blue">En curso</span></div>
+      <div class="card-sub">En revisi&oacute;n por abogado jefe &middot; 45%</div>
+    </div>
+    <button class="card-btn">Ver progreso</button>
+  </div>
+
+  <h3>Los 3 filtros</h3>
+  <p>Arriba a la derecha hay 3 botones redondos para filtrar:</p>
+  <table>
+    <tr>
+      <th>Filtro</th>
+      <th>Qu&eacute; muestra</th>
+    </tr>
+    <tr>
+      <td><strong>Todos</strong></td>
+      <td>Todas las tareas pendientes (urgentes + hoy + en progreso)</td>
+    </tr>
+    <tr>
+      <td><strong>Urgente</strong></td>
+      <td>Solo las cosas que no pueden esperar (rojo)</td>
+    </tr>
+    <tr>
+      <td><strong>Agentes</strong></td>
+      <td>Solo cosas donde un agente IA necesita tu aprobaci&oacute;n</td>
+    </tr>
+  </table>
+
+  <h3>Secciones plegables</h3>
+  <p>Debajo de la bandeja hay dos secciones que puedes abrir o cerrar haciendo clic:</p>
+  <ul style="margin: 12px 0; padding-left: 20px; color: #475569;">
+    <li><strong>&#129302; Actividad de Agentes</strong> &mdash; Qu&eacute; han hecho los agentes IA recientemente</li>
+    <li><strong>&#9989; Completado hoy</strong> &mdash; Las tareas que ya terminaste</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<!-- 4. MIS COSAS                                                  -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>4. Mis Cosas &mdash; Todo en un lugar</h2>
+  <p class="lead">Una lista unificada de TODAS las entidades del estudio.</p>
+
+  <p>Mientras que &ldquo;Inicio&rdquo; te muestra solo lo urgente y del d&iacute;a, <strong>&ldquo;Mis Cosas&rdquo;</strong> te muestra absolutamente todo: leads, correos, contratos, propuestas, causas, facturas, tr&aacute;mites notariales y b&uacute;squedas.</p>
+
+  <h3>Filtros por tipo</h3>
+  <p>Arriba hay chips para filtrar por categor&iacute;a:</p>
+
+  <table>
+    <tr><th>Chip</th><th>Qu&eacute; muestra</th></tr>
+    <tr><td>Todos</td><td>Todo mezclado, ordenado por urgencia</td></tr>
+    <tr><td>Leads</td><td>Solo prospectos y nuevos clientes</td></tr>
+    <tr><td>Correos</td><td>Solo tickets de correo electr&oacute;nico</td></tr>
+    <tr><td>Contratos</td><td>Solo contratos en proceso</td></tr>
+    <tr><td>Propuestas</td><td>Solo propuestas comerciales</td></tr>
+    <tr><td>Causas</td><td>Solo casos judiciales activos</td></tr>
+    <tr><td>Cobranza</td><td>Solo facturas y cobros</td></tr>
+    <tr><td>Notar&iacute;a</td><td>Solo tr&aacute;mites notariales</td></tr>
+  </table>
+
+  <p>Cada tarjeta te dice: <strong>qu&eacute; es</strong>, <strong>de qui&eacute;n es</strong>, <strong>en qu&eacute; estado va</strong>, y <strong>qu&eacute; tienes que hacer</strong>. Haz clic en cualquier tarjeta para ver el detalle en el panel lateral (el &ldquo;drawer&rdquo;).</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- 5. CALENDARIO                                                 -->
+<!-- ============================================================ -->
+<div class="content">
+  <h2>5. Calendario</h2>
+  <p class="lead">Tu agenda organizada por d&iacute;a.</p>
+
+  <p>El calendario muestra tus eventos pr&oacute;ximos agrupados por fecha. Cada evento tiene un color seg&uacute;n su tipo:</p>
+
+  <table>
+    <tr><th>Color</th><th>Tipo</th><th>Ejemplo</th></tr>
+    <tr><td>&#128309; Azul</td><td>Audiencia</td><td>Audiencia preparatoria &mdash; P&eacute;rez SpA</td></tr>
+    <tr><td>&#128994; Verde</td><td>Reuni&oacute;n</td><td>Reuni&oacute;n con cliente S&aacute;nchez</td></tr>
+    <tr><td>&#128308; Rojo</td><td>Plazo</td><td>Vencimiento contestaci&oacute;n demanda</td></tr>
+    <tr><td>&#128992; Amarillo</td><td>Seguimiento</td><td>Seguimiento propuesta Mu&ntilde;oz</td></tr>
+  </table>
+
+  <p>Haz clic en cualquier evento para ver los detalles en el panel lateral.</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- 6. AGENTES                                                    -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>6. Agentes &mdash; Los robots que trabajan para ti</h2>
+  <p class="lead">Los agentes IA hacen trabajo autom&aacute;tico. T&uacute; solo apruebas.</p>
+
+  <p>Logan Virtual tiene <strong>agentes inteligentes</strong> que hacen tareas autom&aacute;ticas por ti: revisan expedientes, redactan borradores, hacen seguimiento a propuestas, detectan SLA por vencer, etc.</p>
+
+  <p>En la p&aacute;gina de <strong>Agentes</strong> ves un registro de todo lo que han hecho, con 3 filtros:</p>
+
+  <table>
+    <tr><th>Filtro</th><th>Qu&eacute; muestra</th></tr>
+    <tr><td>Todos</td><td>Toda la actividad de agentes</td></tr>
+    <tr><td>Requiere Acci&oacute;n</td><td>Cosas donde el agente necesita tu aprobaci&oacute;n</td></tr>
+    <tr><td>Completados</td><td>Tareas que el agente ya termin&oacute; sin necesitar tu ayuda</td></tr>
+  </table>
+
+  <p>Las entradas marcadas con <span class="badge yellow">Requiere acci&oacute;n</span> tienen un fondo amarillo. Haz clic en ellas para abrir el panel de aprobaci&oacute;n.</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- 7. EL DRAWER                                                  -->
+<!-- ============================================================ -->
+<div class="content">
+  <h2>7. El Drawer &mdash; Panel lateral de detalle</h2>
+  <p class="lead">Ver los detalles sin perder de vista tu lista.</p>
+
+  <p>Cuando haces clic en cualquier tarjeta, se abre un <strong>panel deslizante desde la derecha</strong> que muestra los detalles. Esto se llama el &ldquo;drawer&rdquo;.</p>
+
+  <h3>&iquest;C&oacute;mo funciona?</h3>
+  <ol class="steps-list">
+    <li>
+      <div>
+        <strong>Haz clic en una tarjeta</strong><br>
+        El panel se desliza desde la derecha ocupando ~60% de la pantalla.
+      </div>
+    </li>
+    <li>
+      <div>
+        <strong>Ve los detalles</strong><br>
+        Dentro del panel ves toda la informaci&oacute;n: datos del caso, progreso (Pizza Tracker), documentos, agentes involucrados, etc.
+      </div>
+    </li>
+    <li>
+      <div>
+        <strong>Para cerrar</strong><br>
+        Haz clic en la <strong>X</strong> arriba a la derecha, haz clic fuera del panel (en la zona oscura), o presiona la tecla <strong>Esc</strong>.
+      </div>
+    </li>
+  </ol>
+
+  <div class="tip-box">
+    <div class="tip-title">Importante</div>
+    <p>Nunca pierdes tu lugar. La lista de fondo sigue ah&iacute;. Al cerrar el drawer, est&aacute;s exactamente donde estabas.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 8. PIZZA TRACKER                                              -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>8. El Pizza Tracker &mdash; Seguimiento visual de cada caso</h2>
+  <p class="lead">Como cuando pides una pizza y ves en qu&eacute; paso va tu pedido.</p>
+
+  <p>Cada caso, contrato, tr&aacute;mite o cobro tiene un <strong>proceso</strong> con pasos definidos. El Pizza Tracker te muestra visualmente en qu&eacute; paso est&aacute;s:</p>
+
+  <!-- Simulated Pizza Tracker -->
+  <div class="sim-tracker">
+    <div class="sim-step">
+      <div class="dot done">&#10003;</div>
+      <div class="step-label done">Datos cliente</div>
+    </div>
+    <div class="sim-connector done"></div>
+    <div class="sim-step">
+      <div class="dot done">&#10003;</div>
+      <div class="step-label done">Redacci&oacute;n</div>
+    </div>
+    <div class="sim-connector current"></div>
+    <div class="sim-step">
+      <div class="dot current">3</div>
+      <div class="step-label current">Revisi&oacute;n</div>
+    </div>
+    <div class="sim-connector future"></div>
+    <div class="sim-step">
+      <div class="dot future">4</div>
+      <div class="step-label">Firma</div>
+    </div>
+    <div class="sim-connector future"></div>
+    <div class="sim-step">
+      <div class="dot future">5</div>
+      <div class="step-label">Archivo</div>
+    </div>
+  </div>
+
+  <h3>&iquest;C&oacute;mo leerlo?</h3>
+  <table>
+    <tr><th>S&iacute;mbolo</th><th>Significado</th></tr>
+    <tr><td>&#9989; C&iacute;rculo verde con check</td><td>Paso completado</td></tr>
+    <tr><td>&#128309; C&iacute;rculo azul con n&uacute;mero (pulsando)</td><td>Paso actual &mdash; aqu&iacute; est&aacute;s ahora</td></tr>
+    <tr><td>&#9898; C&iacute;rculo gris</td><td>Paso pendiente &mdash; falta por hacer</td></tr>
+    <tr><td>L&iacute;nea verde</td><td>Conexi&oacute;n entre pasos completados</td></tr>
+    <tr><td>L&iacute;nea gris</td><td>Conexi&oacute;n entre pasos pendientes</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <div class="tip-title">Nota</div>
+    <p>Si un proceso tiene 5 pasos o menos, el tracker es horizontal. Si tiene m&aacute;s de 5, cambia a vertical para que sea m&aacute;s f&aacute;cil de leer.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 9. APROBAR TRABAJO DE AGENTES                                 -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>9. Aprobar trabajo de agentes</h2>
+  <p class="lead">Los agentes proponen. T&uacute; decides.</p>
+
+  <p>Cuando un agente IA hace algo importante (como redactar un borrador o sugerir una acci&oacute;n), te pide aprobaci&oacute;n. Ver&aacute;s un panel as&iacute;:</p>
+
+  <!-- Simulated approve panel -->
+  <div class="sim-approve">
+    <div class="agent-bar">
+      <div class="agent-icon">&#129302;</div>
+      <div>
+        <div style="font-weight:600; font-size:14px; color:#1e3a5f;">Agente Revisor</div>
+        <div style="font-size:12px; color:#64748b;">Revis&oacute; el expediente electr&oacute;nico</div>
+      </div>
+    </div>
+    <div class="content-area">
+      Se revis&oacute; el expediente de P&eacute;rez SpA vs Banco Central. Se encontr&oacute; un nuevo movimiento: &ldquo;Provee a lo solicitado&rdquo; con fecha de hoy. Se recomienda revisar y gestionar el tr&aacute;mite.
+    </div>
+    <div class="btn-row">
+      <button class="btn-approve">&#10003; Aprobar</button>
+      <button class="btn-modify">&#9998; Modificar</button>
+      <button class="btn-reject">&#10007; Rechazar</button>
+    </div>
+  </div>
+
+  <h3>Las 3 opciones</h3>
+  <table>
+    <tr><th>Bot&oacute;n</th><th>Qu&eacute; pasa</th></tr>
+    <tr><td><strong style="color:#22c55e;">&#10003; Aprobar</strong></td><td>Aceptas lo que hizo el agente. Se ejecuta la acci&oacute;n.</td></tr>
+    <tr><td><strong style="color:#f59e0b;">&#9998; Modificar</strong></td><td>El agente hizo algo bien pero quieres cambiar algo.</td></tr>
+    <tr><td><strong style="color:#ef4444;">&#10007; Rechazar</strong></td><td>No est&aacute;s de acuerdo. El agente no ejecuta la acci&oacute;n.</td></tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!-- 10. REVISION DE CAUSAS                                        -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>10. Revisi&oacute;n de Causas &mdash; Una a la vez</h2>
+  <p class="lead">En vez de ver una lista de 20 causas, las revisas de a una.</p>
+
+  <p>La revisi&oacute;n de causas usa un <strong>wizard secuencial</strong>: te muestra una causa a la vez, con toda la informaci&oacute;n que necesitas para decidir, y luego pasas a la siguiente.</p>
+
+  <h3>&iquest;C&oacute;mo funciona?</h3>
+  <ol class="steps-list">
+    <li>
+      <div>
+        <strong>Ve a Inicio y haz clic en &ldquo;Iniciar Revisi&oacute;n&rdquo;</strong><br>
+        O ve directamente a la p&aacute;gina de Revisi&oacute;n de Causas desde Mis Cosas.
+      </div>
+    </li>
+    <li>
+      <div>
+        <strong>Lee la informaci&oacute;n de la causa</strong><br>
+        Ver&aacute;s: nombre de la causa, tribunal, ROL, cliente, abogado asignado, y &uacute;ltimo movimiento. Adem&aacute;s, el agente te da su an&aacute;lisis.
+      </div>
+    </li>
+    <li>
+      <div>
+        <strong>Decide: Aprobar, Modificar o Rechazar</strong><br>
+        Usa los 3 botones grandes para indicar tu decisi&oacute;n sobre esta causa.
+      </div>
+    </li>
+    <li>
+      <div>
+        <strong>Pasa a la siguiente</strong><br>
+        El sistema avanza autom&aacute;ticamente. Tambi&eacute;n puedes usar los botones <strong>&ldquo;Anterior&rdquo;</strong> y <strong>&ldquo;Siguiente&rdquo;</strong>, o las flechas del teclado (&#8592; &#8594;).
+      </div>
+    </li>
+    <li>
+      <div>
+        <strong>Al terminar la &uacute;ltima, haz clic en &ldquo;Finalizar&rdquo;</strong><br>
+        Ver&aacute;s un resumen: cu&aacute;ntas aprobaste, modificaste y rechazaste.
+      </div>
+    </li>
+  </ol>
+
+  <div class="tip-box">
+    <div class="tip-title">Ventaja</div>
+    <p>Al revisar de a una causa, te concentras mejor y no te pierdes entre 20 filas de una tabla.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 11. KANBAN                                                    -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>11. Contratos y Propuestas &mdash; Tablero Kanban</h2>
+  <p class="lead">Ve de un vistazo en qu&eacute; estado est&aacute; cada contrato o propuesta.</p>
+
+  <p>Los contratos y las propuestas se muestran en un <strong>tablero tipo Kanban</strong> (como las pizarras con post-its). Cada columna es un estado del proceso:</p>
+
+  <!-- Simulated Kanban -->
+  <div class="sim-kanban">
+    <div class="sim-kanban-col" style="border-color: #f97316;">
+      <h5>Datos Pendientes</h5>
+      <div class="sim-kanban-card">
+        <div class="k-title">Poder Gonz&aacute;lez</div>
+        <div class="k-sub">Mar&iacute;a Gonz&aacute;lez T.</div>
+      </div>
+    </div>
+    <div class="sim-kanban-col" style="border-color: #3b82f6;">
+      <h5>En Redacci&oacute;n</h5>
+      <div class="sim-kanban-card">
+        <div class="k-title">Convenio Inmobiliaria</div>
+        <div class="k-sub">Inmobiliaria Sur Ltda.</div>
+        <div class="k-amount">$1.800.000</div>
+      </div>
+    </div>
+    <div class="sim-kanban-col" style="border-color: #eab308;">
+      <h5>Revisi&oacute;n</h5>
+      <div class="sim-kanban-card">
+        <div class="k-title">Contrato P&eacute;rez SpA</div>
+        <div class="k-sub">P&eacute;rez SpA</div>
+        <div class="k-amount">$2.500.000</div>
+      </div>
+    </div>
+    <div class="sim-kanban-col" style="border-color: #22c55e;">
+      <h5>Aprobado</h5>
+      <div class="sim-kanban-card" style="border-color:#dcfce7;">
+        <div class="k-title" style="color:#22c55e;">Sin elementos</div>
+      </div>
+    </div>
+    <div class="sim-kanban-col" style="border-color: #10b981;">
+      <h5>Firmado</h5>
+    </div>
+  </div>
+
+  <h3>&iquest;C&oacute;mo usarlo?</h3>
+  <ol class="steps-list">
+    <li><div><strong>Lee las columnas de izquierda a derecha</strong> &mdash; Cada una es un paso del proceso.</div></li>
+    <li><div><strong>Cuenta las tarjetas</strong> &mdash; El n&uacute;mero en cada columna te dice cu&aacute;ntos items hay en ese estado.</div></li>
+    <li><div><strong>Haz clic en una tarjeta</strong> &mdash; Se abre el drawer con el detalle y el Pizza Tracker del proceso.</div></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<!-- 12. LAS DEMAS PAGINAS                                         -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>12. Las dem&aacute;s p&aacute;ginas</h2>
+  <p class="lead">Desde &ldquo;Mis Cosas&rdquo; puedes acceder a cada &aacute;rea espec&iacute;fica tambi&eacute;n.</p>
+
+  <p>Hay p&aacute;ginas dedicadas para cada tipo de entidad. Todas funcionan igual: una lista de tarjetas con filtros arriba, y un drawer que se abre al hacer clic.</p>
+
+  <table>
+    <tr><th>P&aacute;gina</th><th>Qu&eacute; ves</th><th>Filtros</th></tr>
+    <tr><td><strong>Recepci&oacute;n (Leads)</strong></td><td>Prospectos y nuevos clientes</td><td>Todos, Nuevos, Contactados, Con Propuesta</td></tr>
+    <tr><td><strong>Correspondencia</strong></td><td>Correos electr&oacute;nicos con SLA</td><td>Todos, Pendientes, SLA Riesgo, Cerrados</td></tr>
+    <tr><td><strong>Cobranza</strong></td><td>Facturas y cobros</td><td>Todos, Vencidas, Por Vencer, Pagadas</td></tr>
+    <tr><td><strong>Tr&aacute;mites Notariales</strong></td><td>Poderes, escrituras, certificados</td><td>Todos, Poder, Escritura, Certificado</td></tr>
+    <tr><td><strong>Casos Activos</strong></td><td>Causas judiciales</td><td>Todos, Civiles, JPL, Otros</td></tr>
+    <tr><td><strong>B&uacute;squeda de Causas</strong></td><td>Jobs del scraper del poder judicial</td><td>Por estado del job</td></tr>
+    <tr><td><strong>Contratos</strong></td><td>Tablero Kanban de contratos</td><td>Por columna del Kanban</td></tr>
+    <tr><td><strong>Propuestas</strong></td><td>Tablero Kanban de propuestas</td><td>Por columna del Kanban</td></tr>
+  </table>
+
+  <h3>P&aacute;ginas de soporte (sin cambios)</h3>
+  <p>Estas p&aacute;ginas se mantienen como antes:</p>
+  <ul style="margin: 12px 0; padding-left: 20px; color: #475569;">
+    <li><strong>Clientes</strong> &mdash; Ficha completa de cada cliente</li>
+    <li><strong>Tareas</strong> &mdash; Lista de tareas del equipo</li>
+    <li><strong>Documentos</strong> &mdash; Repositorio de archivos</li>
+    <li><strong>Asistente IA</strong> &mdash; Chat con la IA</li>
+    <li><strong>Configuraci&oacute;n</strong> &mdash; Usuarios y plantillas</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<!-- 13. REFERENCIA RAPIDA                                         -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>13. Referencia r&aacute;pida</h2>
+  <p class="lead">Hoja de referencia para tener a mano.</p>
+
+  <h3>Colores de urgencia</h3>
+  <table>
+    <tr><th>Color</th><th>Significado</th><th>Ejemplo</th></tr>
+    <tr><td style="color:#dc2626;">&#128308; Rojo</td><td>Urgente &mdash; requiere acci&oacute;n inmediata</td><td>SLA vencido, factura impaga, lead sin contactar</td></tr>
+    <tr><td style="color:#d97706;">&#128992; Amarillo</td><td>Atenci&oacute;n &mdash; hacer hoy</td><td>Revisi&oacute;n diaria, seguimiento 72h</td></tr>
+    <tr><td style="color:#2563eb;">&#128309; Azul</td><td>En progreso &mdash; todo bien</td><td>Contrato en redacci&oacute;n, caso en audiencia</td></tr>
+    <tr><td style="color:#22c55e;">&#128994; Verde</td><td>Completado</td><td>Pago recibido, tr&aacute;mite archivado</td></tr>
+  </table>
+
+  <h3>Atajos de teclado</h3>
+  <table>
+    <tr><th>Tecla</th><th>Acci&oacute;n</th></tr>
+    <tr><td><strong>Esc</strong></td><td>Cerrar el drawer (panel lateral)</td></tr>
+    <tr><td><strong>&#8592; Flecha izquierda</strong></td><td>Causa anterior (en Revisi&oacute;n de Causas)</td></tr>
+    <tr><td><strong>&#8594; Flecha derecha</strong></td><td>Siguiente causa (en Revisi&oacute;n de Causas)</td></tr>
+  </table>
+
+  <h3>Glosario</h3>
+  <table>
+    <tr><th>T&eacute;rmino</th><th>Significado</th></tr>
+    <tr><td><strong>Bandeja</strong></td><td>Lista de items pendientes, como una bandeja de entrada de email</td></tr>
+    <tr><td><strong>Drawer</strong></td><td>Panel que se desliza desde la derecha para ver detalles</td></tr>
+    <tr><td><strong>Pizza Tracker</strong></td><td>Barra de progreso visual que muestra los pasos de un proceso</td></tr>
+    <tr><td><strong>Kanban</strong></td><td>Tablero con columnas donde las tarjetas se mueven de izquierda a derecha</td></tr>
+    <tr><td><strong>Agente</strong></td><td>Robot de IA que hace tareas autom&aacute;ticas (revisar, redactar, etc.)</td></tr>
+    <tr><td><strong>SLA</strong></td><td>Plazo m&aacute;ximo para responder (Service Level Agreement)</td></tr>
+    <tr><td><strong>ROL</strong></td><td>N&uacute;mero identificador de una causa judicial</td></tr>
+    <tr><td><strong>Lead</strong></td><td>Persona interesada en contratar al estudio (prospecto)</td></tr>
+    <tr><td><strong>Wizard</strong></td><td>Asistente paso a paso que te gu&iacute;a por un proceso</td></tr>
+  </table>
+
+  <hr>
+
+  <h3>Flujo t&iacute;pico de un d&iacute;a de trabajo</h3>
+  <ol class="steps-list">
+    <li><div><strong>Abre Logan Virtual</strong> &mdash; Ve a Inicio. Lee qu&eacute; es urgente.</div></li>
+    <li><div><strong>Resuelve lo urgente primero</strong> &mdash; Haz clic en cada tarjeta roja y ejecuta la acci&oacute;n.</div></li>
+    <li><div><strong>Revisa las causas del d&iacute;a</strong> &mdash; Haz clic en &ldquo;Iniciar Revisi&oacute;n&rdquo; y rev&iacute;salas de a una.</div></li>
+    <li><div><strong>Aprueba el trabajo de los agentes</strong> &mdash; Usa el filtro &ldquo;Agentes&rdquo; o ve a la p&aacute;gina de Agentes.</div></li>
+    <li><div><strong>Revisa tus cosas en progreso</strong> &mdash; Mira el Pizza Tracker de cada caso.</div></li>
+    <li><div><strong>Revisa la agenda</strong> &mdash; Ve al Calendario para ver audiencias y plazos.</div></li>
+  </ol>
+
+  <hr>
+
+  <div style="text-align:center; padding: 40px 0; color: #94a3b8;">
+    <div style="font-size:28px; font-weight:800; color:#2563eb; margin-bottom:8px;">Logan Virtual</div>
+    <p style="font-size:13px;">LegalOps OS &mdash; Logan &amp; Logan Abogados</p>
+    <p style="font-size:12px; margin-top:16px;">Manual generado autom&aacute;ticamente &mdash; Versi&oacute;n 3.0, 2026</p>
+  </div>
+</div>
+
+</body>
+</html>
