@@ -4,6 +4,7 @@ from app.tasks.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.db.models.proposal import Proposal
 from app.db.models.task import Task
+from app.db.models.audit_log import AuditLog
 from app.db.enums import ProposalStatusEnum, TaskTypeEnum, TaskStatusEnum, SLAPolicyEnum
 
 
@@ -26,6 +27,19 @@ def expire_proposals():
         for proposal in expired:
             proposal.status = ProposalStatusEnum.EXPIRED
             proposal.updated_at = now
+            db.add(AuditLog(
+                organization_id=proposal.organization_id,
+                actor_user_id=None,
+                action="auto:proposal_expired",
+                entity_type="proposal",
+                entity_id=proposal.id,
+                after_json={
+                    "agent": "Secretaria",
+                    "detail": f"Propuesta #{proposal.id} marcada como expirada automáticamente",
+                    "status": "completed",
+                    "type": "info",
+                },
+            ))
             count += 1
         db.commit()
         return {"expired_count": count}
@@ -73,6 +87,19 @@ def create_followup_tasks():
                     sla_policy=SLAPolicyEnum.PROPOSAL_72H,
                 )
                 db.add(task)
+                db.add(AuditLog(
+                    organization_id=proposal.organization_id,
+                    actor_user_id=None,
+                    action="auto:proposal_followup_created",
+                    entity_type="proposal",
+                    entity_id=proposal.id,
+                    after_json={
+                        "agent": "Secretaria",
+                        "detail": f"Seguimiento 72h creado para propuesta #{proposal.id}",
+                        "status": "completed",
+                        "type": "info",
+                    },
+                ))
                 count += 1
         db.commit()
         return {"tasks_created": count}

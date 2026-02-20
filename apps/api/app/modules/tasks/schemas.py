@@ -31,3 +31,23 @@ class TaskStatsResponse(BaseModel):
     in_progress: int
     completed: int
     overdue: int
+
+
+class TaskCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    task_type: str = "general"
+    entity_type: Optional[str] = None
+    entity_id: Optional[int] = None
+    assigned_to_user_id: Optional[int] = None
+    assigned_role: Optional[str] = None
+    due_at: Optional[datetime] = None
+    sla_policy: str = "none"
+
+
+class TaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    assigned_to_user_id: Optional[int] = None
+    due_at: Optional[datetime] = None

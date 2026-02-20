@@ -68,10 +68,10 @@ export default function TasksPage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"all" | "mine">("mine");
 
-  const { data: tasks = [], isLoading } = useQuery({
+  const { data: tasksData, isLoading } = useQuery({
     queryKey: ["tasks", statusFilter, typeFilter, viewMode],
     queryFn: () =>
-      api.get<Task[]>(
+      api.get<{ items: Task[]; total: number }>(
         (() => {
           const params = new URLSearchParams();
           if (statusFilter !== "all") params.set("status", statusFilter);
@@ -82,6 +82,8 @@ export default function TasksPage() {
         })()
       ),
   });
+
+  const tasks: Task[] = tasksData?.items ?? [];
 
   const { data: stats } = useQuery({
     queryKey: ["tasks", "stats", viewMode],

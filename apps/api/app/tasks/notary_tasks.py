@@ -4,6 +4,7 @@ from app.tasks.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.db.models.notary_document import NotaryDocument
 from app.db.models.task import Task
+from app.db.models.audit_log import AuditLog
 from app.db.enums import (
     NotaryDocStatusEnum, TaskTypeEnum, TaskStatusEnum, SLAPolicyEnum,
 )
@@ -62,6 +63,19 @@ def generate_notary_contact_tasks():
                         sla_policy=SLAPolicyEnum.NOTARY_CONTACT_10_13_17,
                     )
                     db.add(task)
+                    db.add(AuditLog(
+                        organization_id=doc.organization_id,
+                        actor_user_id=None,
+                        action="auto:notary_contact_task_created",
+                        entity_type="notary_document",
+                        entity_id=doc.id,
+                        after_json={
+                            "agent": "Procurador",
+                            "detail": f"Tarea de contacto notarial creada para documento #{doc.id}",
+                            "status": "completed",
+                            "type": "info",
+                        },
+                    ))
                     count += 1
 
         db.commit()

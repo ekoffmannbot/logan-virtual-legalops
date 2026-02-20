@@ -54,3 +54,57 @@ class DashboardOverview(BaseModel):
     matters_by_type: List[MattersByType]
     overdue_tasks: List[OverdueTaskItem]
     critical_deadlines: List[CriticalDeadlineItem]
+
+
+# ── Action Items (Mission Control) ────────────────────────────────────────
+
+class ActionItem(BaseModel):
+    id: str
+    type: str
+    title: str
+    subtitle: Optional[str] = None
+    urgencyText: Optional[str] = None
+    actionLabel: str
+    actionHref: str
+    secondaryLabel: Optional[str] = None
+    secondaryHref: Optional[str] = None
+    amount: Optional[str] = None
+
+
+class InProgressItem(BaseModel):
+    id: str
+    type: str
+    title: str
+    subtitle: Optional[str] = None
+    processId: Optional[str] = None
+    status: str
+    href: str
+
+
+class CompletedItem(BaseModel):
+    id: str
+    title: str
+    subtitle: Optional[str] = None
+    type: str
+
+
+class AgentInsight(BaseModel):
+    agentName: str
+    message: str
+    type: str  # info, warning, suggestion
+
+
+class QuickNumbers(BaseModel):
+    leads: int = 0
+    proposals: int = 0
+    matters: int = 0
+    overdue: int = 0
+
+
+class ActionItemsResponse(BaseModel):
+    urgent: List[ActionItem]
+    today: List[ActionItem]
+    inProgress: List[InProgressItem]
+    completed: List[CompletedItem]
+    agentInsights: List[AgentInsight]
+    quickNumbers: QuickNumbers

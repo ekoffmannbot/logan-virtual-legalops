@@ -5,6 +5,7 @@ from app.core.database import SessionLocal
 from app.db.models.invoice import Invoice
 from app.db.models.collection_case import CollectionCase
 from app.db.models.task import Task
+from app.db.models.audit_log import AuditLog
 from app.db.enums import (
     InvoiceStatusEnum, CollectionCaseStatusEnum,
     TaskTypeEnum, TaskStatusEnum, SLAPolicyEnum,
@@ -55,6 +56,19 @@ def generate_collection_reminders():
                     sla_policy=SLAPolicyEnum.COLLECTION_CALL_11_15_18,
                 )
                 db.add(task)
+                db.add(AuditLog(
+                    organization_id=invoice.organization_id,
+                    actor_user_id=None,
+                    action="auto:collection_reminder_created",
+                    entity_type="invoice",
+                    entity_id=invoice.id,
+                    after_json={
+                        "agent": "Jefe Cobranza",
+                        "detail": f"Recordatorio de cobro creado para factura #{invoice.id}",
+                        "status": "completed",
+                        "type": "info",
+                    },
+                ))
                 count_pre_due += 1
 
         # Invoices due today - mark as due
@@ -69,6 +83,19 @@ def generate_collection_reminders():
         for invoice in due_today:
             invoice.status = InvoiceStatusEnum.DUE
             invoice.updated_at = now
+            db.add(AuditLog(
+                organization_id=invoice.organization_id,
+                actor_user_id=None,
+                action="auto:invoice_marked_due",
+                entity_type="invoice",
+                entity_id=invoice.id,
+                after_json={
+                    "agent": "Jefe Cobranza",
+                    "detail": f"Factura #{invoice.id} marcada como vencida hoy",
+                    "status": "completed",
+                    "type": "info",
+                },
+            ))
 
         # Invoices overdue - mark and escalate
         overdue = (
@@ -82,6 +109,19 @@ def generate_collection_reminders():
         for invoice in overdue:
             invoice.status = InvoiceStatusEnum.OVERDUE
             invoice.updated_at = now
+            db.add(AuditLog(
+                organization_id=invoice.organization_id,
+                actor_user_id=None,
+                action="auto:invoice_overdue",
+                entity_type="invoice",
+                entity_id=invoice.id,
+                after_json={
+                    "agent": "Jefe Cobranza",
+                    "detail": f"Factura #{invoice.id} marcada como morosa",
+                    "status": "completed",
+                    "type": "warning",
+                },
+            ))
 
         db.commit()
         return {"pre_due_tasks": count_pre_due, "marked_due": len(due_today), "marked_overdue": len(overdue)}

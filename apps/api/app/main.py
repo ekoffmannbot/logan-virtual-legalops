@@ -13,8 +13,12 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # CORS: allow localhost + configurable origins via CORS_ORIGINS env var
-    origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    # CORS: allow localhost + Vercel deployments + configurable origins via CORS_ORIGINS env var
+    origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://web-iota-jade-76.vercel.app",
+    ]
     import os
     extra_origins = os.getenv("CORS_ORIGINS", "")
     if extra_origins:
@@ -23,6 +27,7 @@ def create_app() -> FastAPI:
     application.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
+        allow_origin_regex=r"https://.*\.vercel\.app",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -55,6 +60,8 @@ def register_routers(application: FastAPI) -> None:
     from app.modules.ai_assistant.router import router as ai_router
     from app.modules.tasks.router import router as tasks_router
     from app.modules.admin.router import router as admin_router
+    from app.modules.calendar.router import router as calendar_router
+    from app.modules.agent_logs.router import router as agent_logs_router
 
     prefix = "/api/v1"
     application.include_router(auth_router, prefix=f"{prefix}/auth", tags=["Auth"])
@@ -78,6 +85,8 @@ def register_routers(application: FastAPI) -> None:
     application.include_router(ai_router, prefix=f"{prefix}/ai", tags=["AI Assistant"])
     application.include_router(tasks_router, prefix=f"{prefix}/tasks", tags=["Tasks"])
     application.include_router(admin_router, prefix=f"{prefix}/admin", tags=["Admin"])
+    application.include_router(calendar_router, prefix=f"{prefix}/calendar", tags=["Calendar"])
+    application.include_router(agent_logs_router, prefix=f"{prefix}/agent-logs", tags=["Agent Logs"])
 
 
 app = create_app()

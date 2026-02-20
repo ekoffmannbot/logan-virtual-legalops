@@ -90,4 +90,64 @@ def _build_matter_context(db: Session, matter_id: int, org_id: int) -> str:
     if matter.description:
         parts.append(f"Descripcion: {matter.description}")
 
+    # Client info
+    from app.db.models.client import Client
+    if matter.client_id:
+        client = db.query(Client).filter(Client.id == matter.client_id).first()
+        if client:
+            parts.append(f"\nCliente: {client.full_name_or_company}")
+            if client.rut:
+                parts.append(f"RUT: {client.rut}")
+            if client.email:
+                parts.append(f"Email: {client.email}")
+
+    # Deadlines
+    from app.db.models.deadline import Deadline
+    deadlines = (
+        db.query(Deadline)
+        .filter(Deadline.matter_id == matter_id)
+        .order_by(Deadline.due_at.asc())
+        .limit(5)
+        .all()
+    )
+    if deadlines:
+        parts.append("\nPlazos:")
+        for d in deadlines:
+            status = d.status if isinstance(d.status, str) else d.status.value
+            severity = d.severity if isinstance(d.severity, str) else d.severity.value
+            due = d.due_at.strftime("%Y-%m-%d") if d.due_at else "Sin fecha"
+            parts.append(f"  - {d.title} | Vence: {due} | Severidad: {severity} | Estado: {status}")
+
+    # Court actions
+    from app.db.models.court_action import CourtAction
+    actions = (
+        db.query(CourtAction)
+        .filter(CourtAction.matter_id == matter_id)
+        .order_by(CourtAction.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    if actions:
+        parts.append("\nGestiones judiciales recientes:")
+        for a in actions:
+            parts.append(f"  - {a.description or 'Sin descripción'} | Estado: {a.status}")
+
+    # Communications
+    from app.db.models.communication import Communication
+    comms = (
+        db.query(Communication)
+        .filter(
+            Communication.entity_type == "matter",
+            Communication.entity_id == matter_id,
+        )
+        .order_by(Communication.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    if comms:
+        parts.append("\nComunicaciones recientes:")
+        for c in comms:
+            channel = c.channel if isinstance(c.channel, str) else c.channel.value
+            parts.append(f"  - [{channel}] {c.subject or ''}: {(c.body_text or '')[:100]}")
+
     return "\n".join(parts)

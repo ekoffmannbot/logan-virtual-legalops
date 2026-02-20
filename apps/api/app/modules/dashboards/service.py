@@ -3,7 +3,10 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.db.models import Lead, Matter, Proposal, Task, Deadline, Invoice, User
+from app.db.models import (
+    Lead, Matter, Proposal, Task, Deadline, Invoice, User,
+    Client, EmailTicket, Contract, NotaryDocument, AuditLog,
+)
 from app.db.enums import (
     LeadStatusEnum,
     MatterStatusEnum,
@@ -12,6 +15,9 @@ from app.db.enums import (
     DeadlineSeverityEnum,
     DeadlineStatusEnum,
     InvoiceStatusEnum,
+    EmailTicketStatusEnum,
+    ContractStatusEnum,
+    NotaryDocStatusEnum,
 )
 from app.modules.dashboards.schemas import (
     DashboardOverview,
@@ -192,3 +198,347 @@ def get_overview(db: Session, org_id: int) -> DashboardOverview:
         overdue_tasks=overdue_tasks,
         critical_deadlines=critical_deadlines,
     )
+
+
+def get_action_items(db: Session, org_id: int) -> dict:
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+
+    urgent: list[dict] = []
+    today_items: list[dict] = []
+    in_progress: list[dict] = []
+    completed: list[dict] = []
+    agent_insights: list[dict] = []
+
+    # ── URGENT: Overdue invoices ──────────────────────────────────────────
+    overdue_invoices = (
+        db.query(Invoice)
+        .filter(
+            Invoice.organization_id == org_id,
+            Invoice.status == InvoiceStatusEnum.OVERDUE,
+        )
+        .limit(5)
+        .all()
+    )
+
+    for inv in overdue_invoices:
+        client = (
+            db.query(Client).filter(Client.id == inv.client_id).first()
+        )
+        client_name = client.full_name_or_company if client else "Cliente"
+        days_overdue = (now.date() - inv.due_date).days if inv.due_date else 0
+        urgent.append({
+            "id": f"inv-{inv.id}",
+            "type": "invoice",
+            "title": f"Factura vencida: {client_name}",
+            "subtitle": f"${inv.amount:,.0f}" if inv.amount else "",
+            "urgencyText": f"Vencida hace {days_overdue} {'dia' if days_overdue == 1 else 'dias'}",
+            "actionLabel": "Gestionar Cobro",
+            "actionHref": "/collections",
+            "secondaryLabel": "Ver Factura",
+            "secondaryHref": "/collections",
+            "amount": f"${inv.amount:,.0f}" if inv.amount else None,
+        })
+
+    # ── URGENT: Email tickets near SLA breach ─────────────────────────────
+    sla_tickets = (
+        db.query(EmailTicket)
+        .filter(
+            EmailTicket.organization_id == org_id,
+            EmailTicket.status.in_([
+                EmailTicketStatusEnum.NEW,
+                EmailTicketStatusEnum.DRAFTING,
+            ]),
+            EmailTicket.sla_due_24h_at.isnot(None),
+            EmailTicket.sla_due_24h_at <= now + timedelta(hours=6),
+        )
+        .limit(5)
+        .all()
+    )
+
+    for et in sla_tickets:
+        hours_left = (
+            max(0, (et.sla_due_24h_at - now).total_seconds() / 3600)
+            if et.sla_due_24h_at
+            else 0
+        )
+        urgent.append({
+            "id": f"et-{et.id}",
+            "type": "email_ticket",
+            "title": f"SLA por vencer: {et.subject}",
+            "subtitle": et.from_email or "",
+            "urgencyText": (
+                f"Quedan {int(hours_left)}h para responder"
+                if hours_left > 0
+                else "SLA vencido"
+            ),
+            "actionLabel": "Responder",
+            "actionHref": "/email-tickets",
+        })
+
+    # ── URGENT: New leads without contact > 4 hours ───────────────────────
+    stale_leads = (
+        db.query(Lead)
+        .filter(
+            Lead.organization_id == org_id,
+            Lead.status == LeadStatusEnum.NEW,
+            Lead.created_at <= now - timedelta(hours=4),
+        )
+        .limit(5)
+        .all()
+    )
+
+    for lead in stale_leads:
+        hours_since = (
+            (now - lead.created_at).total_seconds() / 3600
+            if lead.created_at
+            else 0
+        )
+        urgent.append({
+            "id": f"lead-{lead.id}",
+            "type": "lead",
+            "title": f"Lead sin contactar: {lead.full_name}",
+            "subtitle": lead.email or lead.phone or "",
+            "urgencyText": f"Sin contacto hace {int(hours_since)} horas",
+            "actionLabel": "Llamar",
+            "actionHref": "/leads",
+        })
+
+    # ── TODAY: Open tasks due today ───────────────────────────────────────
+    today_tasks = (
+        db.query(Task)
+        .filter(
+            Task.organization_id == org_id,
+            Task.status.in_([TaskStatusEnum.OPEN, TaskStatusEnum.IN_PROGRESS]),
+            Task.due_at >= today_start,
+            Task.due_at < today_end,
+        )
+        .limit(5)
+        .all()
+    )
+
+    for t in today_tasks:
+        today_items.append({
+            "id": f"task-{t.id}",
+            "type": "task",
+            "title": t.title,
+            "subtitle": t.description[:80] if t.description else "",
+            "actionLabel": "Ver Tarea",
+            "actionHref": "/tasks",
+        })
+
+    # ── TODAY: Case review (open matters count) ───────────────────────────
+    open_matter_count = (
+        db.query(func.count(Matter.id))
+        .filter(
+            Matter.organization_id == org_id,
+            Matter.status == MatterStatusEnum.OPEN,
+        )
+        .scalar()
+        or 0
+    )
+
+    if open_matter_count > 0:
+        today_items.append({
+            "id": "t-case-review",
+            "type": "case_review",
+            "title": "Revision diaria de causas",
+            "subtitle": f"{open_matter_count} causas pendientes de revision",
+            "actionLabel": "Iniciar Revision",
+            "actionHref": "/case-review",
+        })
+
+    # ── TODAY: Proposal follow-ups due ────────────────────────────────────
+    followup_proposals = (
+        db.query(Proposal)
+        .filter(
+            Proposal.organization_id == org_id,
+            Proposal.status == ProposalStatusEnum.SENT,
+            Proposal.followup_due_at.isnot(None),
+            Proposal.followup_due_at <= now,
+        )
+        .limit(5)
+        .all()
+    )
+
+    for p in followup_proposals:
+        today_items.append({
+            "id": f"prop-{p.id}",
+            "type": "proposal",
+            "title": f"Seguimiento 72h: Propuesta #{p.id}",
+            "subtitle": f"${p.amount:,.0f}" if p.amount else "",
+            "actionLabel": "Contactar",
+            "actionHref": "/proposals",
+        })
+
+    # ── IN PROGRESS: Contracts mid-workflow ───────────────────────────────
+    active_contracts = (
+        db.query(Contract)
+        .filter(
+            Contract.organization_id == org_id,
+            Contract.status.in_([
+                ContractStatusEnum.DRAFTING,
+                ContractStatusEnum.PENDING_REVIEW,
+                ContractStatusEnum.CHANGES_REQUESTED,
+                ContractStatusEnum.APPROVED,
+                ContractStatusEnum.UPLOADED_FOR_SIGNING,
+            ]),
+        )
+        .limit(5)
+        .all()
+    )
+
+    for c in active_contracts:
+        client = (
+            db.query(Client).filter(Client.id == c.client_id).first()
+        )
+        client_name = client.full_name_or_company if client else ""
+        status_val = c.status if isinstance(c.status, str) else c.status.value
+        in_progress.append({
+            "id": f"contract-{c.id}",
+            "type": "contract",
+            "title": f"Contrato {client_name}",
+            "subtitle": f"Estado: {status_val}",
+            "processId": "contrato-mandato",
+            "status": status_val,
+            "href": "/contracts",
+        })
+
+    # ── IN PROGRESS: Notary docs at notary ────────────────────────────────
+    active_notary = (
+        db.query(NotaryDocument)
+        .filter(
+            NotaryDocument.organization_id == org_id,
+            NotaryDocument.status.in_([
+                NotaryDocStatusEnum.SENT_TO_NOTARY,
+                NotaryDocStatusEnum.NOTARY_RECEIVED,
+                NotaryDocStatusEnum.CLIENT_CONTACT_PENDING,
+            ]),
+        )
+        .limit(5)
+        .all()
+    )
+
+    for nd in active_notary:
+        client = (
+            db.query(Client).filter(Client.id == nd.client_id).first()
+        )
+        client_name = client.full_name_or_company if client else ""
+        status_val = (
+            nd.status if isinstance(nd.status, str) else nd.status.value
+        )
+        in_progress.append({
+            "id": f"notary-{nd.id}",
+            "type": "notary",
+            "title": f"Doc. notarial {client_name}",
+            "subtitle": nd.notary_name or "",
+            "processId": "documentos-notariales",
+            "status": status_val,
+            "href": "/notary",
+        })
+
+    # ── COMPLETED: Tasks completed today ──────────────────────────────────
+    completed_tasks = (
+        db.query(Task)
+        .filter(
+            Task.organization_id == org_id,
+            Task.status == TaskStatusEnum.DONE,
+            Task.completed_at >= today_start,
+        )
+        .limit(5)
+        .all()
+    )
+
+    for t in completed_tasks:
+        time_str = t.completed_at.strftime("%H:%M") if t.completed_at else ""
+        completed.append({
+            "id": f"done-{t.id}",
+            "title": t.title,
+            "subtitle": f"Completado a las {time_str}",
+            "type": "task",
+        })
+
+    # ── AGENT INSIGHTS: From AuditLog (system actions) ────────────────────
+    agent_logs = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.organization_id == org_id,
+            AuditLog.actor_user_id.is_(None),
+            AuditLog.created_at >= now - timedelta(hours=24),
+        )
+        .order_by(AuditLog.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    for al in agent_logs:
+        after = al.after_json or {}
+        agent_name = after.get("agent", "Sistema")
+        detail = after.get("detail", al.action)
+        insight_type = after.get("type", "info")
+        agent_insights.append({
+            "agentName": agent_name,
+            "message": detail,
+            "type": insight_type,
+        })
+
+    # If no real agent insights, add a default
+    if not agent_insights:
+        agent_insights.append({
+            "agentName": "Sistema",
+            "message": "Todos los procesos automaticos estan al dia.",
+            "type": "info",
+        })
+
+    # ── QUICK NUMBERS ─────────────────────────────────────────────────────
+    quick_numbers = {
+        "leads": (
+            db.query(func.count(Lead.id))
+            .filter(
+                Lead.organization_id == org_id,
+                Lead.status == LeadStatusEnum.NEW,
+            )
+            .scalar()
+            or 0
+        ),
+        "proposals": (
+            db.query(func.count(Proposal.id))
+            .filter(
+                Proposal.organization_id == org_id,
+                Proposal.status.in_([
+                    ProposalStatusEnum.DRAFT,
+                    ProposalStatusEnum.SENT,
+                ]),
+            )
+            .scalar()
+            or 0
+        ),
+        "matters": (
+            db.query(func.count(Matter.id))
+            .filter(
+                Matter.organization_id == org_id,
+                Matter.status == MatterStatusEnum.OPEN,
+            )
+            .scalar()
+            or 0
+        ),
+        "overdue": (
+            db.query(func.count(Invoice.id))
+            .filter(
+                Invoice.organization_id == org_id,
+                Invoice.status == InvoiceStatusEnum.OVERDUE,
+            )
+            .scalar()
+            or 0
+        ),
+    }
+
+    return {
+        "urgent": urgent,
+        "today": today_items,
+        "inProgress": in_progress,
+        "completed": completed,
+        "agentInsights": agent_insights,
+        "quickNumbers": quick_numbers,
+    }

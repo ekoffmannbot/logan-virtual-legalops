@@ -396,6 +396,139 @@ def seed():
         )
         for al in [al1, al2]:
             db.add(al)
+        db.flush()
+        print("  Audit Logs: 2 created")
+
+        # --- Agent Activity Logs (for /agent-logs endpoint) ---
+        agent_logs_data = [
+            AuditLog(
+                organization_id=org.id, actor_user_id=None,
+                action="auto:proposal_followup_created", entity_type="proposal", entity_id=p1.id,
+                after_json={"agent": "Secretaria", "detail": f"Seguimiento 72h creado para propuesta #{p1.id}. Han pasado 72 horas desde el envío.", "status": "completed", "type": "info"}
+            ),
+            AuditLog(
+                organization_id=org.id, actor_user_id=None,
+                action="auto:email_sla_breach", entity_type="email_ticket", entity_id=et2.id,
+                after_json={"agent": "Abogado", "detail": f"Email '{et2.subject}' ha incumplido SLA de 24h. Requiere atención inmediata.", "status": "pending_approval", "type": "warning", "action_required": True}
+            ),
+            AuditLog(
+                organization_id=org.id, actor_user_id=None,
+                action="auto:collection_reminder_created", entity_type="invoice", entity_id=inv2.id,
+                after_json={"agent": "Jefe Cobranza", "detail": f"Recomiendo escalar factura #{inv2.id}. 3 intentos de contacto sin éxito.", "status": "pending_approval", "type": "warning", "action_required": True}
+            ),
+            AuditLog(
+                organization_id=org.id, actor_user_id=None,
+                action="auto:notary_contact_task_created", entity_type="notary_document", entity_id=nd1.id,
+                after_json={"agent": "Procurador", "detail": f"Tarea de contacto notarial creada para documento #{nd1.id}", "status": "completed", "type": "info"}
+            ),
+            AuditLog(
+                organization_id=org.id, actor_user_id=None,
+                action="auto:case_review_completed", entity_type="matter", entity_id=matters[0].id,
+                after_json={"agent": "Revisor de Causas", "detail": f"Verificación de movimientos completada para causa {matters[0].title}. Sin movimientos nuevos.", "status": "completed", "type": "info"}
+            ),
+            AuditLog(
+                organization_id=org.id, actor_user_id=None,
+                action="auto:email_draft_generated", entity_type="email_ticket", entity_id=et1.id,
+                after_json={"agent": "Abogado", "detail": f"Borrador de respuesta generado para email '{et1.subject}'. Listo para revisión.", "status": "pending_approval", "type": "suggestion", "action_required": True}
+            ),
+            AuditLog(
+                organization_id=org.id, actor_user_id=None,
+                action="auto:scraper_lead_detected", entity_type="lead", entity_id=leads[4].id,
+                after_json={"agent": "Comercial", "detail": f"Nuevo lead detectado desde LegalBOT: {leads[4].full_name}", "status": "completed", "type": "info"}
+            ),
+            AuditLog(
+                organization_id=org.id, actor_user_id=None,
+                action="auto:daily_digest_generated", entity_type="task", entity_id=None,
+                after_json={"agent": "Secretaria", "detail": "Resumen diario: 2 tareas vencidas detectadas. Se crearon recordatorios.", "status": "completed", "type": "warning"}
+            ),
+        ]
+        for al in agent_logs_data:
+            db.add(al)
+        db.flush()
+        print(f"  Agent Logs: {len(agent_logs_data)} created")
+
+        # --- Court Actions (for calendar events) ---
+        ca1 = CourtAction(
+            organization_id=org.id, matter_id=matters[0].id,
+            action_type="escrito", description="Presentación escrito de demanda",
+            method=CourtActionMethodEnum.ELECTRONIC.value,
+            status=CourtActionStatusEnum.SENT.value,
+            sent_at=now - timedelta(days=5),
+        )
+        ca2 = CourtAction(
+            organization_id=org.id, matter_id=matters[1].id,
+            action_type="audiencia", description="Audiencia de conciliación",
+            method=CourtActionMethodEnum.IN_PERSON.value,
+            must_appear_in_court=True,
+            status=CourtActionStatusEnum.DRAFT.value,
+        )
+        ca3 = CourtAction(
+            organization_id=org.id, matter_id=matters[3].id,
+            action_type="audiencia", description="Audiencia preparatoria JPL",
+            method=CourtActionMethodEnum.IN_PERSON.value,
+            must_appear_in_court=True,
+            status=CourtActionStatusEnum.DRAFT.value,
+        )
+        for ca in [ca1, ca2, ca3]:
+            db.add(ca)
+        db.flush()
+        print("  Court Actions: 3 created")
+
+        # --- Communications (for context builder) ---
+        comm1 = Communication(
+            organization_id=org.id, entity_type="matter", entity_id=matters[0].id,
+            channel=CommunicationChannelEnum.PHONE.value,
+            direction=CommunicationDirectionEnum.OUTBOUND.value,
+            subject="Llamada a cliente sobre avance causa",
+            body_text="Se informó al cliente sobre el estado de la demanda. Cliente conforme con el avance.",
+            created_by_user_id=abogado.id,
+        )
+        comm2 = Communication(
+            organization_id=org.id, entity_type="lead", entity_id=leads[1].id,
+            channel=CommunicationChannelEnum.EMAIL.value,
+            direction=CommunicationDirectionEnum.OUTBOUND.value,
+            subject="Envío información del estudio",
+            body_text="Se envió brochure y tarifas del estudio al prospecto.",
+            created_by_user_id=secretaria.id,
+        )
+        comm3 = Communication(
+            organization_id=org.id, entity_type="matter", entity_id=matters[1].id,
+            channel=CommunicationChannelEnum.PHONE.value,
+            direction=CommunicationDirectionEnum.INBOUND.value,
+            subject="Consulta cliente sobre documentos",
+            body_text="Cliente pregunta por el estado de los documentos para firmar en notaría.",
+            created_by_user_id=secretaria.id,
+        )
+        for comm in [comm1, comm2, comm3]:
+            db.add(comm)
+        db.flush()
+        print("  Communications: 3 created")
+
+        # --- Completed Tasks (for dashboard) ---
+        completed_task_1 = Task(
+            organization_id=org.id, title="Preparar escrito de demanda caso Rojas",
+            task_type=TaskTypeEnum.COURT_FILING.value,
+            entity_type="matter", entity_id=matters[1].id,
+            assigned_to_user_id=abogado.id, assigned_role="abogado",
+            due_at=now - timedelta(hours=3),
+            completed_at=now - timedelta(hours=1),
+            status=TaskStatusEnum.DONE.value,
+            sla_policy=SLAPolicyEnum.NONE.value,
+        )
+        completed_task_2 = Task(
+            organization_id=org.id, title="Confirmar recepción documento notarial",
+            task_type=TaskTypeEnum.NOTARY_CONTACT.value,
+            entity_type="notary_document", entity_id=nd3.id,
+            assigned_to_user_id=procurador.id, assigned_role="procurador",
+            due_at=now - timedelta(hours=5),
+            completed_at=now - timedelta(hours=2),
+            status=TaskStatusEnum.DONE.value,
+            sla_policy=SLAPolicyEnum.NONE.value,
+        )
+        for ct in [completed_task_1, completed_task_2]:
+            db.add(ct)
+        db.flush()
+        print("  Completed Tasks: 2 created")
 
         db.commit()
         print("\nSeed completed successfully!")

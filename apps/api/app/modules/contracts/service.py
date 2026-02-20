@@ -110,17 +110,28 @@ def _scanned_document_url(db: Session, contract_id: int) -> Optional[str]:
 
 
 def _build_list_item(db: Session, c: Contract) -> dict:
+    client_name = _client_name(db, c.client_id)
+    matter_title = _matter_title(db, c.matter_id)
+    # Derive a display title from matter or client name
+    title = matter_title or (f"Contrato {client_name}" if client_name else f"Contrato #{c.id}")
     return {
         "id": c.id,
-        "client_name": _client_name(db, c.client_id),
+        "title": title,
+        "client_name": client_name,
+        "type": "honorarios",
         "status": c.status.value if hasattr(c.status, "value") else c.status,
+        "start_date": c.created_at,
+        "end_date": None,
+        "monthly_fee": None,
+        "currency": "CLP",
+        "process_id": "contrato-mandato",
         "drafted_by": _user_full_name(db, c.drafted_by_user_id),
         "reviewed_by": _user_full_name(db, c.reviewed_by_user_id),
         "signed": c.signed_at is not None,
         "signed_at": c.signed_at,
         "created_at": c.created_at,
         "matter_id": c.matter_id,
-        "matter_title": _matter_title(db, c.matter_id),
+        "matter_title": matter_title,
     }
 
 

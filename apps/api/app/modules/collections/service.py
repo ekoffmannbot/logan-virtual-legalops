@@ -355,7 +355,16 @@ def get_stats(db: Session, org_id: int) -> dict:
         .scalar()
     ) or 0
 
-    total_overdue = (
+    overdue_count = (
+        db.query(func.count(Invoice.id))
+        .filter(
+            Invoice.organization_id == org_id,
+            Invoice.status == InvoiceStatusEnum.OVERDUE.value,
+        )
+        .scalar()
+    ) or 0
+
+    overdue_amount = (
         db.query(func.coalesce(func.sum(Invoice.amount), 0))
         .filter(
             Invoice.organization_id == org_id,
@@ -363,6 +372,24 @@ def get_stats(db: Session, org_id: int) -> dict:
         )
         .scalar()
     ) or 0
+
+    # Collection rate: percentage of total invoice value that has been paid
+    total_billed = (
+        db.query(func.coalesce(func.sum(Invoice.amount), 0))
+        .filter(Invoice.organization_id == org_id)
+        .scalar()
+    ) or 0
+
+    total_paid = (
+        db.query(func.coalesce(func.sum(Invoice.amount), 0))
+        .filter(
+            Invoice.organization_id == org_id,
+            Invoice.status == InvoiceStatusEnum.PAID.value,
+        )
+        .scalar()
+    ) or 0
+
+    collection_rate = round((int(total_paid) / int(total_billed) * 100), 1) if int(total_billed) > 0 else 0.0
 
     active_cases = (
         db.query(func.count(CollectionCase.id))
@@ -379,7 +406,9 @@ def get_stats(db: Session, org_id: int) -> dict:
     return {
         "total_invoices": int(total_invoices),
         "total_outstanding": int(total_outstanding),
-        "total_overdue": int(total_overdue),
+        "overdue_count": int(overdue_count),
+        "overdue_amount": int(overdue_amount),
+        "collection_rate": float(collection_rate),
         "active_cases": int(active_cases),
     }
 

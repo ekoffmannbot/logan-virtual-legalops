@@ -4,6 +4,7 @@ from app.tasks.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.db.models.email_ticket import EmailTicket
 from app.db.models.task import Task
+from app.db.models.audit_log import AuditLog
 from app.db.enums import EmailTicketStatusEnum, TaskTypeEnum, TaskStatusEnum, SLAPolicyEnum
 
 
@@ -48,6 +49,20 @@ def check_email_sla():
                     sla_policy=SLAPolicyEnum.EMAIL_24H,
                 )
                 db.add(task)
+                db.add(AuditLog(
+                    organization_id=ticket.organization_id,
+                    actor_user_id=None,
+                    action="auto:email_sla_breach",
+                    entity_type="email_ticket",
+                    entity_id=ticket.id,
+                    after_json={
+                        "agent": "Abogado",
+                        "detail": f"Email '{ticket.subject}' ha incumplido SLA de 24h",
+                        "status": "pending_approval",
+                        "type": "warning",
+                        "action_required": True,
+                    },
+                ))
                 count_24h += 1
 
         # Check 48h SLA breach
@@ -77,6 +92,20 @@ def check_email_sla():
                 sla_policy=SLAPolicyEnum.EMAIL_48H,
             )
             db.add(task)
+            db.add(AuditLog(
+                organization_id=ticket.organization_id,
+                actor_user_id=None,
+                action="auto:email_sla_breach_48h",
+                entity_type="email_ticket",
+                entity_id=ticket.id,
+                after_json={
+                    "agent": "Abogado",
+                    "detail": f"URGENTE: Email '{ticket.subject}' ha incumplido SLA de 48h",
+                    "status": "pending_approval",
+                    "type": "warning",
+                    "action_required": True,
+                },
+            ))
             count_48h += 1
 
         db.commit()

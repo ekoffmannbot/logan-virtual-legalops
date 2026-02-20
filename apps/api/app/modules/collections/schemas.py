@@ -105,7 +105,9 @@ class CollectionCaseDetailResponse(BaseModel):
 class CollectionStatsResponse(BaseModel):
     total_invoices: int
     total_outstanding: int
-    total_overdue: int
+    overdue_count: int
+    overdue_amount: int
+    collection_rate: float
     active_cases: int
 
 

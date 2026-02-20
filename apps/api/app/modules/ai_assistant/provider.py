@@ -39,6 +39,78 @@ class MockAIProvider:
         }
 
 
+class AnthropicProvider:
+    """AI provider using Anthropic Claude API."""
+
+    def __init__(self, api_key: str, model: str = "claude-sonnet-4-20250514"):
+        import anthropic
+        self.client = anthropic.Anthropic(api_key=api_key)
+        self.model = model
+
+    def _system_prompt(self) -> str:
+        return (
+            "Eres un asistente legal AI para Logan & Logan Abogados, "
+            "un estudio jurídico chileno. Responde siempre en español chileno formal. "
+            "Sé preciso, profesional y conciso. Cuando redactes documentos legales, "
+            "usa formato formal chileno. No inventes información que no esté en el contexto."
+        )
+
+    def _call(self, user_message: str) -> str:
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=2048,
+            system=self._system_prompt(),
+            messages=[{"role": "user", "content": user_message}],
+        )
+        return response.content[0].text
+
+    def draft_email(self, context: str) -> dict:
+        prompt = (
+            "Redacta un email profesional de respuesta al cliente basado en este contexto. "
+            "Usa formato formal chileno con saludo, cuerpo y despedida.\n\n"
+            f"Contexto:\n{context}"
+        )
+        return {"draft": self._call(prompt), "confidence": 0.9, "sources": []}
+
+    def draft_proposal(self, context: str) -> dict:
+        prompt = (
+            "Redacta una propuesta de servicios jurídicos profesional basada en este contexto. "
+            "Incluye: estrategia propuesta, honorarios sugeridos, modalidad de pago, "
+            "y plazos estimados.\n\n"
+            f"Contexto:\n{context}"
+        )
+        return {"draft": self._call(prompt), "confidence": 0.85, "sources": []}
+
+    def summarize_matter(self, context: str) -> dict:
+        prompt = (
+            "Resume este caso legal de forma clara y estructurada. Incluye: "
+            "1) Resumen general, 2) Estado actual, 3) Próximos pasos sugeridos, "
+            "4) Riesgos identificados.\n\n"
+            f"Información del caso:\n{context}"
+        )
+        text = self._call(prompt)
+        return {
+            "summary": text,
+            "confidence": 0.85,
+            "sources": [],
+            "next_steps": [],
+        }
+
+    def ask(self, question: str, context: str) -> dict:
+        prompt = f"Pregunta: {question}"
+        if context:
+            prompt = f"Contexto del caso:\n{context}\n\nPregunta: {question}"
+        return {
+            "answer": self._call(prompt),
+            "confidence": 0.85,
+            "sources": [],
+        }
+
+
 def get_ai_provider() -> AIProvider:
     from app.core.config import settings
-    return MockAIProvider()  # Always mock for MVP
+    if getattr(settings, 'AI_PROVIDER', 'mock') == "anthropic":
+        api_key = getattr(settings, 'ANTHROPIC_API_KEY', '')
+        if api_key:
+            return AnthropicProvider(api_key)
+    return MockAIProvider()

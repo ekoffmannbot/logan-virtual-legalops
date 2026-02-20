@@ -26,8 +26,15 @@ class TransitionRequest(BaseModel):
 
 class ContractListItem(BaseModel):
     id: int
+    title: str = ""
     client_name: Optional[str] = None
+    type: str = "honorarios"
     status: str
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    monthly_fee: Optional[int] = None
+    currency: str = "CLP"
+    process_id: str = "contrato-mandato"
     drafted_by: Optional[str] = None
     reviewed_by: Optional[str] = None
     signed: bool = False
