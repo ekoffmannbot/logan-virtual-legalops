@@ -403,8 +403,8 @@ export default function BandejaPage() {
         {/* Type and status */}
         <div className="flex flex-wrap gap-2">
           <span
-            className="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-3 py-1 font-medium"
-            style={{ fontSize: "13px" }}
+            className="inline-flex items-center rounded-full px-3 py-1 font-medium"
+            style={{ fontSize: "13px", background: "var(--bg-tertiary)", color: "var(--text-primary)", border: "1px solid var(--glass-border)" }}
           >
             {typeLabel}
           </span>
@@ -419,8 +419,8 @@ export default function BandejaPage() {
           </span>
           {item.timeUrgent && (
             <span
-              className="inline-flex items-center rounded-full bg-red-100 text-red-800 px-3 py-1 font-medium"
-              style={{ fontSize: "13px" }}
+              className="inline-flex items-center rounded-full px-3 py-1 font-medium"
+              style={{ fontSize: "13px", background: "rgba(239,68,68,0.2)", color: "var(--danger)" }}
             >
               Urgente
             </span>
@@ -428,10 +428,13 @@ export default function BandejaPage() {
         </div>
 
         {/* Summary card */}
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+        <div
+          className="rounded-xl p-4 space-y-3"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+        >
           <h3
-            className="font-semibold text-gray-800"
-            style={{ fontSize: "15px" }}
+            className="font-semibold"
+            style={{ fontSize: "15px", color: "var(--text-primary)" }}
           >
             Resumen
           </h3>
@@ -450,12 +453,12 @@ export default function BandejaPage() {
         {/* Pizza Tracker */}
         <div className="space-y-2">
           <h3
-            className="font-semibold text-gray-800"
-            style={{ fontSize: "15px" }}
+            className="font-semibold"
+            style={{ fontSize: "15px", color: "var(--text-primary)" }}
           >
             Progreso del Proceso
           </h3>
-          <p className="text-gray-500" style={{ fontSize: "13px" }}>
+          <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
             {progress.stepLabel}
             {progress.agentName && ` \u00B7 ${progress.agentName}`}
           </p>
@@ -464,20 +467,26 @@ export default function BandejaPage() {
 
         {/* Agent info if available */}
         {progress.agentName && (
-          <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100">
-              <ClipboardCheck className="h-5 w-5 text-blue-600" />
+          <div
+            className="flex items-center gap-3 rounded-xl p-4"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)" }}
+          >
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+              style={{ background: "rgba(99,102,241,0.2)" }}
+            >
+              <ClipboardCheck className="h-5 w-5" style={{ color: "var(--primary-color)" }} />
             </div>
             <div className="min-w-0 flex-1">
               <p
-                className="font-medium text-gray-500"
-                style={{ fontSize: "13px" }}
+                className="font-medium"
+                style={{ fontSize: "13px", color: "var(--text-muted)" }}
               >
                 Agente Responsable
               </p>
               <p
-                className="font-semibold text-gray-900"
-                style={{ fontSize: "14px" }}
+                className="font-semibold"
+                style={{ fontSize: "14px", color: "var(--text-primary)" }}
               >
                 {progress.agentName}
               </p>
@@ -486,8 +495,11 @@ export default function BandejaPage() {
         )}
 
         {/* Next action */}
-        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
-          <p className="font-semibold text-blue-800" style={{ fontSize: "14px" }}>
+        <div
+          className="rounded-xl px-4 py-3"
+          style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)" }}
+        >
+          <p className="font-semibold" style={{ fontSize: "14px", color: "var(--primary-color)" }}>
             Pr\u00f3xima acci\u00f3n: {item.actionLabel}
           </p>
         </div>
@@ -499,7 +511,7 @@ export default function BandejaPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--primary-color)" }} />
       </div>
     );
   }
@@ -511,18 +523,21 @@ export default function BandejaPage() {
       {/* HEADER                                                        */}
       {/* ============================================================ */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-          <Inbox className="h-5 w-5 text-blue-600" />
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-full"
+          style={{ background: "rgba(99,102,241,0.2)" }}
+        >
+          <Inbox className="h-5 w-5" style={{ color: "var(--primary-color)" }} />
         </div>
         <h1
-          className="text-2xl font-bold text-gray-900"
-          style={{ fontSize: "24px" }}
+          className="text-2xl font-bold"
+          style={{ fontSize: "24px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
         >
           Mis Cosas
         </h1>
         <span
-          className="inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 font-semibold"
-          style={{ fontSize: "13px" }}
+          className="inline-flex items-center justify-center rounded-full px-2.5 py-0.5 font-semibold"
+          style={{ fontSize: "13px", background: "rgba(99,102,241,0.2)", color: "var(--primary-color)" }}
         >
           {allItems.length}
         </span>
@@ -539,24 +554,25 @@ export default function BandejaPage() {
               key={chip.key}
               type="button"
               onClick={() => setActiveFilter(chip.key)}
-              className={[
-                "inline-flex items-center rounded-full px-4 py-1.5 font-medium transition-colors",
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-              ].join(" ")}
-              style={{ fontSize: "14px" }}
+              className="inline-flex items-center rounded-full px-4 py-1.5 font-medium transition-colors"
+              style={{
+                fontSize: "14px",
+                background: isActive ? "var(--primary-color)" : "var(--bg-tertiary)",
+                color: isActive ? "#ffffff" : "var(--text-secondary)",
+                border: isActive ? "none" : "1px solid var(--glass-border)",
+              }}
             >
               {chip.label}
               {chip.key === "urgente" && urgentCount > 0 && (
                 <span
-                  className={[
-                    "ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 font-semibold",
-                    isActive
-                      ? "bg-white/20 text-white"
-                      : "bg-red-100 text-red-700",
-                  ].join(" ")}
-                  style={{ fontSize: "11px" }}
+                  className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 font-semibold"
+                  style={{
+                    fontSize: "11px",
+                    background: isActive
+                      ? "rgba(255,255,255,0.2)"
+                      : "rgba(239,68,68,0.2)",
+                    color: isActive ? "#ffffff" : "var(--danger)",
+                  }}
                 >
                   {urgentCount}
                 </span>
@@ -571,16 +587,19 @@ export default function BandejaPage() {
       {/* ============================================================ */}
       {filteredItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-4">
-            <Inbox className="h-8 w-8 text-green-500" />
+          <div
+            className="flex h-16 w-16 items-center justify-center rounded-full mb-4"
+            style={{ background: "rgba(34,197,94,0.15)" }}
+          >
+            <Inbox className="h-8 w-8" style={{ color: "var(--success)" }} />
           </div>
           <p
-            className="font-medium text-gray-700"
-            style={{ fontSize: "16px" }}
+            className="font-medium"
+            style={{ fontSize: "16px", color: "var(--text-primary)" }}
           >
             Todo al d\u00eda. No hay pendientes.
           </p>
-          <p className="text-gray-500 mt-1" style={{ fontSize: "14px" }}>
+          <p className="mt-1" style={{ fontSize: "14px", color: "var(--text-muted)" }}>
             {activeFilter !== "todos"
               ? "No hay elementos con este filtro."
               : "No tienes pendientes en este momento."}
@@ -627,12 +646,12 @@ function DetailField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p
-        className="font-medium text-gray-500 uppercase tracking-wide"
-        style={{ fontSize: "12px" }}
+        className="font-medium uppercase tracking-wide"
+        style={{ fontSize: "12px", color: "var(--text-muted)" }}
       >
         {label}
       </p>
-      <p className="text-gray-900 mt-0.5" style={{ fontSize: "14px" }}>
+      <p className="mt-0.5" style={{ fontSize: "14px", color: "var(--text-primary)" }}>
         {value}
       </p>
     </div>

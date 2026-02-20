@@ -30,24 +30,19 @@ interface AgentLogProps {
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-const STATUS_DOT_COLORS: Record<AgentLogEntry["status"], string> = {
-  completed: "bg-green-500",
-  pending_approval: "bg-yellow-500",
-  in_progress: "bg-blue-500",
-  failed: "bg-red-500",
+const STATUS_DOT_STYLES: Record<AgentLogEntry["status"], string> = {
+  completed: "var(--success)",
+  pending_approval: "var(--warning)",
+  in_progress: "var(--primary-color)",
+  failed: "var(--danger)",
 };
 
-/**
- * Returns a human-readable relative time string in Spanish.
- * e.g. "Hace 5 min", "Hace 1 hora", "Hace 2 días"
- */
 export function getRelativeTimeSpanish(isoString: string): string {
   const now = Date.now();
   const then = new Date(isoString).getTime();
   const diffMs = now - then;
 
   if (diffMs < 0) return "Ahora";
-
   const seconds = Math.floor(diffMs / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
@@ -58,24 +53,20 @@ export function getRelativeTimeSpanish(isoString: string): string {
   if (minutes < 60) return `Hace ${minutes} min`;
   if (hours === 1) return "Hace 1 hora";
   if (hours < 24) return `Hace ${hours} horas`;
-  if (days === 1) return "Hace 1 día";
-  return `Hace ${days} días`;
+  if (days === 1) return "Hace 1 d\u00eda";
+  return `Hace ${days} d\u00edas`;
 }
 
 /* ------------------------------------------------------------------ */
-/* Component                                                           */
+/* Component – Dark theme                                              */
 /* ------------------------------------------------------------------ */
 
-export function AgentLog({
-  entries,
-  onEntryClick,
-  maxVisible = 10,
-}: AgentLogProps) {
+export function AgentLog({ entries, onEntryClick, maxVisible = 10 }: AgentLogProps) {
   const [expanded, setExpanded] = useState(false);
 
   if (entries.length === 0) {
     return (
-      <p className="text-[13px] text-muted-foreground py-4">
+      <p className="py-4 text-[13px]" style={{ color: "var(--text-muted)" }}>
         No hay actividad de agentes registrada.
       </p>
     );
@@ -93,54 +84,84 @@ export function AgentLog({
           <div
             key={entry.id}
             className={cn(
-              "flex gap-3 transition-colors",
-              onEntryClick && "cursor-pointer hover:bg-gray-50/80",
-              entry.status === "pending_approval" && "bg-yellow-50",
+              "flex gap-3 transition-colors rounded-lg",
+              onEntryClick && "cursor-pointer",
             )}
+            style={{
+              background:
+                entry.status === "pending_approval"
+                  ? "rgba(245, 158, 11, 0.05)"
+                  : undefined,
+            }}
             onClick={() => onEntryClick?.(entry)}
+            onMouseEnter={(e) => {
+              if (onEntryClick)
+                (e.currentTarget as HTMLElement).style.background = "var(--bg-card-hover)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background =
+                entry.status === "pending_approval"
+                  ? "rgba(245, 158, 11, 0.05)"
+                  : "";
+            }}
           >
             {/* Timeline rail */}
-            <div className="flex flex-col items-center flex-shrink-0 pt-1">
+            <div className="flex flex-shrink-0 flex-col items-center pt-1">
               <div
-                className={cn(
-                  "mt-1 h-2.5 w-2.5 rounded-full flex-shrink-0",
-                  STATUS_DOT_COLORS[entry.status],
-                )}
+                className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                style={{ background: STATUS_DOT_STYLES[entry.status] }}
               />
               {!isLast && (
-                <div className="w-[2px] flex-1 bg-gray-200" />
+                <div
+                  className="w-[2px] flex-1"
+                  style={{ background: "var(--glass-border)" }}
+                />
               )}
             </div>
 
-            {/* Entry content */}
-            <div className="pb-5 min-w-0 flex-1">
-              {/* Agent name + relative time */}
+            {/* Content */}
+            <div className="min-w-0 flex-1 pb-5">
               <div className="flex items-center gap-2">
-                <Bot className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                <span className="text-[14px] font-bold text-gray-900 truncate">
+                <Bot className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+                <span
+                  className="truncate text-sm font-bold"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   {entry.agentName}
                 </span>
-                <span className="text-[13px] text-gray-400 flex-shrink-0">
+                <span
+                  className="flex-shrink-0 text-[13px]"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   {getRelativeTimeSpanish(entry.timestamp)}
                 </span>
               </div>
 
-              {/* Action */}
-              <p className="mt-0.5 text-[14px] text-gray-700 leading-snug">
+              <p
+                className="mt-0.5 text-sm leading-snug"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 {entry.action}
               </p>
 
-              {/* Detail */}
               {entry.detail && (
-                <p className="mt-0.5 text-[13px] text-gray-500 leading-snug">
+                <p
+                  className="mt-0.5 text-[13px] leading-snug"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   {entry.detail}
                 </p>
               )}
 
-              {/* Action required badge */}
               {entry.actionRequired && (
-                <span className="mt-1.5 inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-[13px] font-medium text-orange-700">
-                  {"Requiere acci\u00f3n"}
+                <span
+                  className="mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[13px] font-medium"
+                  style={{
+                    background: "rgba(245, 158, 11, 0.2)",
+                    color: "var(--warning)",
+                  }}
+                >
+                  Requiere acci{"\u00f3"}n
                 </span>
               )}
             </div>
@@ -148,12 +169,12 @@ export function AgentLog({
         );
       })}
 
-      {/* Ver mas / Ver menos */}
       {hasMore && (
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
-          className="mt-1 w-full text-center text-[13px] font-medium text-primary hover:underline focus:outline-none"
+          className="mt-1 w-full text-center text-[13px] font-medium transition-colors"
+          style={{ color: "var(--primary-color)" }}
         >
           {expanded ? "Ver menos" : `Ver m\u00e1s (${entries.length - maxVisible})`}
         </button>

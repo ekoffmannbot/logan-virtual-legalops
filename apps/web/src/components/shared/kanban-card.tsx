@@ -3,19 +3,12 @@
 import { cn } from "@/lib/utils";
 
 export interface KanbanCardProps {
-  /** Unique identifier for the card */
   id: string;
-  /** Primary text – 15px, font-medium, truncated */
   title: string;
-  /** Secondary text – 13px, text-gray-500 */
   subtitle: string;
-  /** Optional status badge text */
   badge?: string;
-  /** Tailwind classes for the badge (bg + text color) */
   badgeColor?: string;
-  /** Monetary amount, e.g. "$3.500.000" */
   amount?: string;
-  /** Click handler for the whole card */
   onClick?: () => void;
   className?: string;
 }
@@ -25,7 +18,7 @@ export function KanbanCard({
   title,
   subtitle,
   badge,
-  badgeColor = "bg-gray-100 text-gray-700",
+  badgeColor,
   amount,
   onClick,
   className,
@@ -42,25 +35,42 @@ export function KanbanCard({
         }
       }}
       className={cn(
-        "w-full cursor-pointer rounded-lg border bg-white p-3 transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+        "w-full cursor-pointer rounded-xl p-3.5 transition-all duration-200",
         className,
       )}
+      style={{
+        background: "var(--bg-secondary)",
+        border: "1px solid var(--glass-border)",
+      }}
+      onMouseEnter={(e) => {
+        const el = e.currentTarget as HTMLElement;
+        el.style.borderColor = "var(--primary-color)";
+        el.style.transform = "translateY(-2px)";
+        el.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.3)";
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget as HTMLElement;
+        el.style.borderColor = "var(--glass-border)";
+        el.style.transform = "";
+        el.style.boxShadow = "";
+      }}
     >
-      {/* Top row: title + badge */}
+      {/* Title + badge */}
       <div className="flex items-start justify-between gap-2">
         <h4
-          className="min-w-0 flex-1 truncate text-[15px] font-medium leading-snug text-gray-900"
+          className="min-w-0 flex-1 truncate text-sm font-semibold leading-snug"
+          style={{ color: "var(--text-primary)" }}
           title={title}
         >
           {title}
         </h4>
-
         {badge && (
           <span
-            className={cn(
-              "flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold leading-tight",
-              badgeColor,
-            )}
+            className="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+            style={{
+              background: "var(--bg-tertiary)",
+              color: "var(--text-secondary)",
+            }}
           >
             {badge}
           </span>
@@ -68,14 +78,20 @@ export function KanbanCard({
       </div>
 
       {/* Subtitle */}
-      <p className="mt-1 truncate text-[13px] leading-snug text-gray-500">
+      <p
+        className="mt-1 truncate text-xs leading-snug"
+        style={{ color: "var(--text-muted)" }}
+      >
         {subtitle}
       </p>
 
-      {/* Amount – bottom right */}
+      {/* Amount */}
       {amount && (
         <div className="mt-2 flex justify-end">
-          <span className="text-[14px] font-semibold text-gray-900">
+          <span
+            className="text-base font-bold"
+            style={{ color: "var(--accent-color)" }}
+          >
             {amount}
           </span>
         </div>

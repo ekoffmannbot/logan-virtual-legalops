@@ -155,10 +155,10 @@ export default function ContractsPage() {
       <div className="space-y-6">
         {/* Progreso visual */}
         <div>
-          <p className="text-[14px] font-semibold text-gray-700 mb-1">
+          <p className="text-[14px] font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
             Progreso del contrato
           </p>
-          <p className="text-[13px] text-gray-500 mb-4">
+          <p className="text-[13px] mb-4" style={{ color: "var(--text-muted)" }}>
             Paso {currentIndex + 1} de {steps.length}: {progress.stepLabel}
           </p>
           <PizzaTracker
@@ -168,8 +168,11 @@ export default function ContractsPage() {
         </div>
 
         {/* Detalles del contrato */}
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-          <h3 className="text-[15px] font-semibold text-gray-800">
+        <div
+          className="rounded-xl p-4 space-y-3"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+        >
+          <h3 className="text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>
             Detalles
           </h3>
 
@@ -201,14 +204,14 @@ export default function ContractsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--primary-color)" }} />
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-2 text-red-600">
+      <div className="flex flex-col items-center justify-center py-20 gap-2" style={{ color: "var(--danger)" }}>
         <AlertCircle className="h-8 w-8" />
         <p className="text-[14px]">Error al cargar contratos</p>
       </div>
@@ -219,9 +222,14 @@ export default function ContractsPage() {
     <div className="space-y-6">
       {/* ---- HEADER ---- */}
       <div className="flex items-center gap-3">
-        <FileSignature className="h-6 w-6 text-gray-700" />
-        <h1 className="text-2xl font-bold text-gray-900">Contratos</h1>
-        <span className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-gray-200 px-2 text-[13px] font-semibold text-gray-600">
+        <FileSignature className="h-6 w-6" style={{ color: "var(--text-primary)" }} />
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}>
+          Contratos
+        </h1>
+        <span
+          className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full px-2 text-[13px] font-semibold"
+          style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)", border: "1px solid var(--glass-border)" }}
+        >
           {contracts.length}
         </span>
       </div>
@@ -244,10 +252,10 @@ export default function ContractsPage() {
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[12px] font-medium text-gray-500 uppercase tracking-wide">
+      <p className="text-[12px] font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
         {label}
       </p>
-      <p className="text-[14px] text-gray-900 mt-0.5">{value}</p>
+      <p className="text-[14px] mt-0.5" style={{ color: "var(--text-primary)" }}>{value}</p>
     </div>
   );
 }

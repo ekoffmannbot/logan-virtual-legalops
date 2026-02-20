@@ -56,16 +56,16 @@ const ROLE_LABELS: Record<string, string> = {
   associate: "Asociado",
   paralegal: "Paralegal",
   secretary: "Secretaria",
-  billing: "Facturación",
+  billing: "Facturaci\u00f3n",
 };
 
-const ROLE_COLORS: Record<string, string> = {
-  admin: "bg-red-100 text-red-700",
-  partner: "bg-purple-100 text-purple-700",
-  associate: "bg-blue-100 text-blue-700",
-  paralegal: "bg-green-100 text-green-700",
-  secretary: "bg-yellow-100 text-yellow-700",
-  billing: "bg-orange-100 text-orange-700",
+const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
+  admin: { bg: "rgba(239,68,68,0.2)", text: "var(--danger)" },
+  partner: { bg: "rgba(99,102,241,0.2)", text: "var(--primary-color)" },
+  associate: { bg: "rgba(99,102,241,0.15)", text: "var(--primary-color)" },
+  paralegal: { bg: "rgba(34,197,94,0.2)", text: "var(--success)" },
+  secretary: { bg: "rgba(245,158,11,0.2)", text: "var(--warning)" },
+  billing: { bg: "rgba(249,115,22,0.2)", text: "#f97316" },
 };
 
 const TEMPLATE_TYPES: Record<string, string> = {
@@ -179,7 +179,10 @@ export default function AdminPage() {
       label: "Nombre",
       render: (u: UserRecord) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-medium text-blue-700">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium"
+            style={{ background: "rgba(99,102,241,0.2)", color: "var(--primary-color)" }}
+          >
             {u.full_name
               .split(" ")
               .map((n) => n[0])
@@ -188,8 +191,8 @@ export default function AdminPage() {
               .toUpperCase()}
           </div>
           <div>
-            <p className="font-medium text-gray-900">{u.full_name}</p>
-            <p className="text-xs text-gray-500">{u.email}</p>
+            <p className="font-medium" style={{ color: "var(--text-primary)" }}>{u.full_name}</p>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{u.email}</p>
           </div>
         </div>
       ),
@@ -197,23 +200,24 @@ export default function AdminPage() {
     {
       key: "role",
       label: "Rol",
-      render: (u: UserRecord) => (
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
-            ROLE_COLORS[u.role] || "bg-gray-100 text-gray-700"
-          )}
-        >
-          <Shield className="h-3 w-3" />
-          {ROLE_LABELS[u.role] || u.role}
-        </span>
-      ),
+      render: (u: UserRecord) => {
+        const roleColor = ROLE_COLORS[u.role] || { bg: "var(--bg-tertiary)", text: "var(--text-secondary)" };
+        return (
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+            style={{ background: roleColor.bg, color: roleColor.text }}
+          >
+            <Shield className="h-3 w-3" />
+            {ROLE_LABELS[u.role] || u.role}
+          </span>
+        );
+      },
     },
     {
       key: "phone",
-      label: "Teléfono",
+      label: "Tel\u00e9fono",
       render: (u: UserRecord) => (
-        <span className="text-sm text-gray-600">{u.phone || "—"}</span>
+        <span className="text-sm" style={{ color: "var(--text-muted)" }}>{u.phone || "\u2014"}</span>
       ),
     },
     {
@@ -221,12 +225,11 @@ export default function AdminPage() {
       label: "Estado",
       render: (u: UserRecord) => (
         <span
-          className={cn(
-            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-            u.is_active
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
-          )}
+          className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+          style={{
+            background: u.is_active ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)",
+            color: u.is_active ? "var(--success)" : "var(--danger)",
+          }}
         >
           {u.is_active ? "Activo" : "Inactivo"}
         </span>
@@ -234,9 +237,9 @@ export default function AdminPage() {
     },
     {
       key: "last_login_at",
-      label: "Último acceso",
+      label: "\u00daltimo acceso",
       render: (u: UserRecord) => (
-        <span className="text-sm text-gray-500">
+        <span className="text-sm" style={{ color: "var(--text-muted)" }}>
           {u.last_login_at ? formatDate(u.last_login_at) : "Nunca"}
         </span>
       ),
@@ -253,12 +256,22 @@ export default function AdminPage() {
               isActive: !u.is_active,
             });
           }}
-          className={cn(
-            "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-            u.is_active
-              ? "border border-red-200 text-red-700 hover:bg-red-50"
-              : "border border-green-200 text-green-700 hover:bg-green-50"
-          )}
+          className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+          style={{
+            border: u.is_active
+              ? "1px solid rgba(239,68,68,0.3)"
+              : "1px solid rgba(34,197,94,0.3)",
+            color: u.is_active ? "var(--danger)" : "var(--success)",
+            background: "transparent",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = u.is_active
+              ? "rgba(239,68,68,0.1)"
+              : "rgba(34,197,94,0.1)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
         >
           {u.is_active ? "Desactivar" : "Activar"}
         </button>
@@ -270,23 +283,27 @@ export default function AdminPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Administración</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Gestión de usuarios, plantillas y configuración del sistema
+        <h1
+          className="text-2xl font-bold"
+          style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+        >
+          Administraci\u00f3n
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+          Gesti\u00f3n de usuarios, plantillas y configuraci\u00f3n del sistema
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div style={{ borderBottom: "1px solid var(--glass-border)" }}>
         <div className="flex gap-8">
           <button
             onClick={() => setActiveTab("users")}
-            className={cn(
-              "pb-3 text-sm font-medium border-b-2 transition-colors",
-              activeTab === "users"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            )}
+            className="pb-3 text-sm font-medium transition-colors"
+            style={{
+              borderBottom: activeTab === "users" ? "2px solid var(--primary-color)" : "2px solid transparent",
+              color: activeTab === "users" ? "var(--primary-color)" : "var(--text-muted)",
+            }}
           >
             <span className="inline-flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -295,12 +312,11 @@ export default function AdminPage() {
           </button>
           <button
             onClick={() => setActiveTab("templates")}
-            className={cn(
-              "pb-3 text-sm font-medium border-b-2 transition-colors",
-              activeTab === "templates"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            )}
+            className="pb-3 text-sm font-medium transition-colors"
+            style={{
+              borderBottom: activeTab === "templates" ? "2px solid var(--primary-color)" : "2px solid transparent",
+              color: activeTab === "templates" ? "var(--primary-color)" : "var(--text-muted)",
+            }}
           >
             <span className="inline-flex items-center gap-2">
               <FileCode className="h-4 w-4" />
@@ -309,16 +325,15 @@ export default function AdminPage() {
           </button>
           <button
             onClick={() => setActiveTab("settings")}
-            className={cn(
-              "pb-3 text-sm font-medium border-b-2 transition-colors",
-              activeTab === "settings"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            )}
+            className="pb-3 text-sm font-medium transition-colors"
+            style={{
+              borderBottom: activeTab === "settings" ? "2px solid var(--primary-color)" : "2px solid transparent",
+              color: activeTab === "settings" ? "var(--primary-color)" : "var(--text-muted)",
+            }}
           >
             <span className="inline-flex items-center gap-2">
               <Cog className="h-4 w-4" />
-              Configuración
+              Configuraci\u00f3n
             </span>
           </button>
         </div>
@@ -330,18 +345,26 @@ export default function AdminPage() {
           {/* Search + Create */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
               <input
                 type="text"
                 placeholder="Buscar usuarios..."
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg py-2 pl-10 pr-4 text-sm outline-none"
+                style={{
+                  background: "var(--bg-tertiary)",
+                  border: "1px solid var(--glass-border)",
+                  color: "var(--text-primary)",
+                }}
               />
             </div>
             <button
               onClick={() => setShowCreateUser(!showCreateUser)}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors"
+              style={{ background: "var(--primary-color)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
             >
               <Plus className="h-4 w-4" />
               Crear Usuario
@@ -350,21 +373,31 @@ export default function AdminPage() {
 
           {/* Create User Form */}
           {showCreateUser && (
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+            <div
+              className="rounded-xl p-6 shadow-sm"
+              style={{
+                background: "var(--bg-card)",
+                border: "1px solid var(--glass-border)",
+                borderRadius: 16,
+              }}
+            >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2
+                  className="text-lg font-semibold"
+                  style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+                >
                   Crear Nuevo Usuario
                 </h2>
                 <button
                   onClick={() => setShowCreateUser(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  style={{ color: "var(--text-muted)" }}
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
                     Nombre completo
                   </label>
                   <input
@@ -373,12 +406,17 @@ export default function AdminPage() {
                     onChange={(e) =>
                       setNewUser({ ...newUser, full_name: e.target.value })
                     }
-                    placeholder="Juan Pérez"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Juan P\u00e9rez"
+                    className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+                    style={{
+                      background: "var(--bg-tertiary)",
+                      border: "1px solid var(--glass-border)",
+                      color: "var(--text-primary)",
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
                     Email
                   </label>
                   <input
@@ -388,11 +426,16 @@ export default function AdminPage() {
                       setNewUser({ ...newUser, email: e.target.value })
                     }
                     placeholder="juan@loganlogan.cl"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+                    style={{
+                      background: "var(--bg-tertiary)",
+                      border: "1px solid var(--glass-border)",
+                      color: "var(--text-primary)",
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
                     Rol
                   </label>
                   <select
@@ -400,7 +443,12 @@ export default function AdminPage() {
                     onChange={(e) =>
                       setNewUser({ ...newUser, role: e.target.value })
                     }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+                    style={{
+                      background: "var(--bg-tertiary)",
+                      border: "1px solid var(--glass-border)",
+                      color: "var(--text-primary)",
+                    }}
                   >
                     {Object.entries(ROLE_LABELS).map(([value, label]) => (
                       <option key={value} value={value}>
@@ -410,8 +458,8 @@ export default function AdminPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Teléfono
+                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+                    Tel\u00e9fono
                   </label>
                   <input
                     type="tel"
@@ -420,12 +468,17 @@ export default function AdminPage() {
                       setNewUser({ ...newUser, phone: e.target.value })
                     }
                     placeholder="+56 9 1234 5678"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+                    style={{
+                      background: "var(--bg-tertiary)",
+                      border: "1px solid var(--glass-border)",
+                      color: "var(--text-primary)",
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contraseña
+                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+                    Contrase\u00f1a
                   </label>
                   <div className="relative">
                     <input
@@ -434,13 +487,19 @@ export default function AdminPage() {
                       onChange={(e) =>
                         setNewUser({ ...newUser, password: e.target.value })
                       }
-                      placeholder="Mínimo 8 caracteres"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="M\u00ednimo 8 caracteres"
+                      className="w-full rounded-lg px-3 py-2 pr-10 text-sm outline-none"
+                      style={{
+                        background: "var(--bg-tertiary)",
+                        border: "1px solid var(--glass-border)",
+                        color: "var(--text-primary)",
+                      }}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2"
+                      style={{ color: "var(--text-muted)" }}
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -460,7 +519,8 @@ export default function AdminPage() {
                     !newUser.full_name.trim() ||
                     !newUser.password.trim()
                   }
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50 transition-colors"
+                  style={{ background: "var(--primary-color)" }}
                 >
                   <Save className="h-4 w-4" />
                   {createUserMutation.isPending
@@ -469,7 +529,13 @@ export default function AdminPage() {
                 </button>
                 <button
                   onClick={() => setShowCreateUser(false)}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                  style={{
+                    border: "1px solid var(--glass-border)",
+                    color: "var(--text-secondary)",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-tertiary)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                 >
                   Cancelar
                 </button>
@@ -480,7 +546,10 @@ export default function AdminPage() {
           {/* Users Table */}
           {loadingUsers ? (
             <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-4 border-t-transparent"
+                style={{ borderColor: "var(--primary-color)", borderTopColor: "transparent" }}
+              />
             </div>
           ) : filteredUsers.length === 0 ? (
             <EmptyState
@@ -502,18 +571,26 @@ export default function AdminPage() {
           {/* Search + Create */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
               <input
                 type="text"
                 placeholder="Buscar plantillas..."
                 value={templateSearch}
                 onChange={(e) => setTemplateSearch(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg py-2 pl-10 pr-4 text-sm outline-none"
+                style={{
+                  background: "var(--bg-tertiary)",
+                  border: "1px solid var(--glass-border)",
+                  color: "var(--text-primary)",
+                }}
               />
             </div>
             <button
               onClick={() => setShowCreateTemplate(!showCreateTemplate)}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors"
+              style={{ background: "var(--primary-color)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
             >
               <Plus className="h-4 w-4" />
               Nueva Plantilla
@@ -522,21 +599,31 @@ export default function AdminPage() {
 
           {/* Create Template Form */}
           {showCreateTemplate && (
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+            <div
+              className="rounded-xl p-6 shadow-sm"
+              style={{
+                background: "var(--bg-card)",
+                border: "1px solid var(--glass-border)",
+                borderRadius: 16,
+              }}
+            >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2
+                  className="text-lg font-semibold"
+                  style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+                >
                   Crear Nueva Plantilla
                 </h2>
                 <button
                   onClick={() => setShowCreateTemplate(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  style={{ color: "var(--text-muted)" }}
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
                     Nombre de la plantilla
                   </label>
                   <input
@@ -549,11 +636,16 @@ export default function AdminPage() {
                       })
                     }
                     placeholder="ej: Carta de poder simple"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+                    style={{
+                      background: "var(--bg-tertiary)",
+                      border: "1px solid var(--glass-border)",
+                      color: "var(--text-primary)",
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
                     Tipo
                   </label>
                   <select
@@ -564,7 +656,12 @@ export default function AdminPage() {
                         type: e.target.value,
                       })
                     }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+                    style={{
+                      background: "var(--bg-tertiary)",
+                      border: "1px solid var(--glass-border)",
+                      color: "var(--text-primary)",
+                    }}
                   >
                     {Object.entries(TEMPLATE_TYPES).map(([value, label]) => (
                       <option key={value} value={value}>
@@ -574,7 +671,7 @@ export default function AdminPage() {
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
                     Contenido
                   </label>
                   <textarea
@@ -586,10 +683,15 @@ export default function AdminPage() {
                       })
                     }
                     rows={10}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
-                    placeholder="Contenido de la plantilla. Use {{variable}} para variables dinámicas."
+                    className="w-full rounded-lg px-3 py-2 text-sm font-mono outline-none"
+                    style={{
+                      background: "var(--bg-tertiary)",
+                      border: "1px solid var(--glass-border)",
+                      color: "var(--text-primary)",
+                    }}
+                    placeholder="Contenido de la plantilla. Use {{variable}} para variables din\u00e1micas."
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
                     Variables disponibles: {"{{client_name}}"},{" "}
                     {"{{matter_title}}"}, {"{{date}}"}, {"{{lawyer_name}}"}
                   </p>
@@ -603,7 +705,8 @@ export default function AdminPage() {
                     !newTemplate.name.trim() ||
                     !newTemplate.content.trim()
                   }
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50 transition-colors"
+                  style={{ background: "var(--primary-color)" }}
                 >
                   <Save className="h-4 w-4" />
                   {createTemplateMutation.isPending
@@ -612,7 +715,13 @@ export default function AdminPage() {
                 </button>
                 <button
                   onClick={() => setShowCreateTemplate(false)}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                  style={{
+                    border: "1px solid var(--glass-border)",
+                    color: "var(--text-secondary)",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-tertiary)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                 >
                   Cancelar
                 </button>
@@ -623,7 +732,10 @@ export default function AdminPage() {
           {/* Templates List */}
           {loadingTemplates ? (
             <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-4 border-t-transparent"
+                style={{ borderColor: "var(--primary-color)", borderTopColor: "transparent" }}
+              />
             </div>
           ) : filteredTemplates.length === 0 ? (
             <EmptyState
@@ -638,14 +750,30 @@ export default function AdminPage() {
               {filteredTemplates.map((template) => (
                 <div
                   key={template.id}
-                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow"
+                  className="p-5 transition-all duration-200"
+                  style={{
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: 16,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "var(--glass-border-hover)";
+                    e.currentTarget.style.background = "var(--bg-card-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "var(--glass-border)";
+                    e.currentTarget.style.background = "var(--bg-card)";
+                  }}
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-medium text-gray-900">
+                      <h3 className="font-medium" style={{ color: "var(--text-primary)" }}>
                         {template.name}
                       </h3>
-                      <span className="mt-1 inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                      <span
+                        className="mt-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                        style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)" }}
+                      >
                         {TEMPLATE_TYPES[template.type] || template.type}
                       </span>
                     </div>
@@ -653,12 +781,15 @@ export default function AdminPage() {
                       onClick={() =>
                         deleteTemplateMutation.mutate(template.id)
                       }
-                      className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                      className="rounded p-1 transition-colors"
+                      style={{ color: "var(--text-muted)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.1)"; e.currentTarget.style.color = "var(--danger)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
-                  <p className="mt-3 text-sm text-gray-500 line-clamp-3">
+                  <p className="mt-3 text-sm line-clamp-3" style={{ color: "var(--text-muted)" }}>
                     {template.content}
                   </p>
                   {template.variables.length > 0 && (
@@ -666,14 +797,18 @@ export default function AdminPage() {
                       {template.variables.map((v) => (
                         <span
                           key={v}
-                          className="rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-600 font-mono"
+                          className="rounded px-1.5 py-0.5 text-xs font-mono"
+                          style={{ background: "rgba(99,102,241,0.15)", color: "var(--primary-color)" }}
                         >
                           {`{{${v}}}`}
                         </span>
                       ))}
                     </div>
                   )}
-                  <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">
+                  <div
+                    className="mt-3 pt-3 text-xs"
+                    style={{ borderTop: "1px solid var(--glass-border)", color: "var(--text-muted)" }}
+                  >
                     Creada {formatDate(template.created_at)} por{" "}
                     {template.created_by}
                   </div>
@@ -687,38 +822,63 @@ export default function AdminPage() {
       {/* ============ SETTINGS TAB ============ */}
       {activeTab === "settings" && (
         <div className="space-y-6">
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">
-              Configuración General
+          <div
+            className="p-6 shadow-sm"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--glass-border)",
+              borderRadius: 16,
+            }}
+          >
+            <h2
+              className="text-lg font-semibold mb-6"
+              style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+            >
+              Configuraci\u00f3n General
             </h2>
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
                   Nombre del estudio
                 </label>
                 <input
                   type="text"
                   defaultValue="Logan & Logan Abogados"
-                  className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full max-w-md rounded-lg px-3 py-2 text-sm outline-none"
+                  style={{
+                    background: "var(--bg-tertiary)",
+                    border: "1px solid var(--glass-border)",
+                    color: "var(--text-primary)",
+                  }}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
                   Email principal
                 </label>
                 <input
                   type="email"
                   defaultValue="contacto@loganlogan.cl"
-                  className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full max-w-md rounded-lg px-3 py-2 text-sm outline-none"
+                  style={{
+                    background: "var(--bg-tertiary)",
+                    border: "1px solid var(--glass-border)",
+                    color: "var(--text-primary)",
+                  }}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
                   Zona horaria
                 </label>
                 <select
                   defaultValue="America/Santiago"
-                  className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full max-w-md rounded-lg px-3 py-2 text-sm outline-none"
+                  style={{
+                    background: "var(--bg-tertiary)",
+                    border: "1px solid var(--glass-border)",
+                    color: "var(--text-primary)",
+                  }}
                 >
                   <option value="America/Santiago">
                     America/Santiago (GMT-3)
@@ -730,78 +890,101 @@ export default function AdminPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
                   Moneda predeterminada
                 </label>
                 <select
                   defaultValue="CLP"
-                  className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full max-w-md rounded-lg px-3 py-2 text-sm outline-none"
+                  style={{
+                    background: "var(--bg-tertiary)",
+                    border: "1px solid var(--glass-border)",
+                    color: "var(--text-primary)",
+                  }}
                 >
                   <option value="CLP">Peso Chileno (CLP)</option>
-                  <option value="USD">Dólar Estadounidense (USD)</option>
+                  <option value="USD">D\u00f3lar Estadounidense (USD)</option>
                   <option value="UF">Unidad de Fomento (UF)</option>
                 </select>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">
-              Configuración de Notificaciones
+          <div
+            className="p-6 shadow-sm"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--glass-border)",
+              borderRadius: 16,
+            }}
+          >
+            <h2
+              className="text-lg font-semibold mb-6"
+              style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+            >
+              Configuraci\u00f3n de Notificaciones
             </h2>
             <div className="space-y-4">
               <label className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                     Notificaciones por email
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                     Recibir alertas de tareas y plazos por correo
                   </p>
                 </div>
                 <input
                   type="checkbox"
                   defaultChecked
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 rounded"
+                  style={{ accentColor: "var(--primary-color)" }}
                 />
               </label>
               <label className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                     Alertas de SLA
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                     Notificar cuando un ticket se acerque al SLA
                   </p>
                 </div>
                 <input
                   type="checkbox"
                   defaultChecked
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 rounded"
+                  style={{ accentColor: "var(--primary-color)" }}
                 />
               </label>
               <label className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                     Resumen diario
                   </p>
-                  <p className="text-xs text-gray-500">
-                    Enviar resumen de actividad al final del día
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    Enviar resumen de actividad al final del d\u00eda
                   </p>
                 </div>
                 <input
                   type="checkbox"
                   defaultChecked={false}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 rounded"
+                  style={{ accentColor: "var(--primary-color)" }}
                 />
               </label>
             </div>
           </div>
 
           <div className="flex justify-end">
-            <button className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors">
+            <button
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors"
+              style={{ background: "var(--primary-color)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+            >
               <Save className="h-4 w-4" />
-              Guardar Configuración
+              Guardar Configuraci\u00f3n
             </button>
           </div>
         </div>

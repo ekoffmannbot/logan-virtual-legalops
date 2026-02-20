@@ -4,8 +4,7 @@ import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
-/* PIZZA TRACKER – Dominant process stepper inspired by Domino's       */
-/* Horizontal layout for <=5 steps, vertical layout for >5 steps      */
+/* PIZZA TRACKER – Dark glassmorphism theme                            */
 /* ------------------------------------------------------------------ */
 
 interface PizzaTrackerStep {
@@ -20,10 +19,6 @@ interface PizzaTrackerProps {
   className?: string;
 }
 
-/* ------------------------------------------------------------------ */
-/* Step circle shared between both layouts                             */
-/* ------------------------------------------------------------------ */
-
 function StepCircle({
   index,
   status,
@@ -33,22 +28,33 @@ function StepCircle({
 }) {
   return (
     <div className="relative flex items-center justify-center">
-      {/* Pulse ring – only on current step */}
       {status === "current" && (
-        <span className="absolute h-12 w-12 rounded-full bg-blue-400/30 animate-pulse" />
+        <span
+          className="absolute h-12 w-12 rounded-full animate-pulse"
+          style={{ background: "rgba(99, 102, 241, 0.2)" }}
+        />
       )}
-
-      {/* Main circle */}
       <div
         className={cn(
-          "relative z-10 flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition-all duration-300",
-          status === "completed" && "bg-green-500 text-white shadow-md shadow-green-500/25",
-          status === "current" && "bg-blue-600 text-white shadow-lg shadow-blue-600/30",
-          status === "future" && "bg-gray-200 text-gray-400",
+          "relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white transition-all duration-300",
         )}
+        style={{
+          background:
+            status === "completed"
+              ? "var(--success)"
+              : status === "current"
+                ? "var(--primary-color)"
+                : "var(--bg-tertiary)",
+          color:
+            status === "future" ? "var(--text-muted)" : "white",
+          boxShadow:
+            status === "current"
+              ? "0 0 0 4px rgba(99, 102, 241, 0.2)"
+              : undefined,
+        }}
       >
         {status === "completed" ? (
-          <Check className="h-5 w-5" strokeWidth={3} />
+          <Check className="h-4 w-4" strokeWidth={3} />
         ) : (
           <span>{index + 1}</span>
         )}
@@ -57,81 +63,52 @@ function StepCircle({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Helper: resolve step status                                         */
-/* ------------------------------------------------------------------ */
-
 function getStatus(stepIndex: number, currentStepIndex: number) {
   if (stepIndex < currentStepIndex) return "completed" as const;
   if (stepIndex === currentStepIndex) return "current" as const;
   return "future" as const;
 }
 
-/* ------------------------------------------------------------------ */
-/* HORIZONTAL LAYOUT (<=5 steps)                                       */
-/* ------------------------------------------------------------------ */
-
-function HorizontalTracker({
-  steps,
-  currentStepIndex,
-  className,
-}: PizzaTrackerProps) {
+function HorizontalTracker({ steps, currentStepIndex, className }: PizzaTrackerProps) {
   return (
-    <div
-      className={cn(
-        "w-full rounded-xl bg-white px-6 py-8 shadow-sm border border-gray-100",
-        className,
-      )}
-    >
+    <div className={cn("w-full py-4", className)}>
       <div className="flex items-start">
         {steps.map((step, i) => {
           const status = getStatus(i, currentStepIndex);
           const isLast = i === steps.length - 1;
 
           return (
-            <div
-              key={step.id}
-              className={cn("flex items-start", !isLast && "flex-1")}
-            >
-              {/* Step node */}
+            <div key={step.id} className={cn("flex items-start", !isLast && "flex-1")}>
               <div className="flex flex-col items-center">
                 <StepCircle index={i} status={status} />
-
-                {/* Label */}
                 <p
-                  className={cn(
-                    "mt-3 text-center text-[14px] leading-tight max-w-[120px]",
-                    status === "completed" && "font-medium text-green-600",
-                    status === "current" && "font-semibold text-blue-600",
-                    status === "future" && "font-medium text-gray-400",
-                  )}
+                  className="mt-2 max-w-[120px] text-center text-[10px] font-medium"
+                  style={{
+                    color:
+                      status === "completed"
+                        ? "var(--success)"
+                        : status === "current"
+                          ? "var(--primary-color)"
+                          : "var(--text-muted)",
+                    fontWeight: status === "current" ? 700 : 500,
+                  }}
                 >
                   {step.label}
                 </p>
-
-                {/* Description */}
-                {step.description && (
-                  <p
-                    className={cn(
-                      "mt-1 text-center text-[13px] leading-snug max-w-[140px]",
-                      status === "current" ? "text-gray-600" : "text-gray-500",
-                    )}
-                  >
-                    {step.description}
-                  </p>
-                )}
               </div>
 
-              {/* Connector line */}
               {!isLast && (
-                <div className="flex-1 flex items-center pt-5">
+                <div className="flex flex-1 items-center pt-4">
                   <div
-                    className={cn(
-                      "h-1 w-full rounded-full mx-3 transition-all duration-500",
-                      i < currentStepIndex && "bg-green-500",
-                      i === currentStepIndex && "bg-blue-600",
-                      i > currentStepIndex && "bg-gray-200",
-                    )}
+                    className="mx-2 h-[3px] w-full rounded-full transition-all duration-500"
+                    style={{
+                      background:
+                        i < currentStepIndex
+                          ? "var(--success)"
+                          : i === currentStepIndex
+                            ? "var(--primary-color)"
+                            : "var(--bg-tertiary)",
+                    }}
                   />
                 </div>
               )}
@@ -143,22 +120,9 @@ function HorizontalTracker({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* VERTICAL LAYOUT (>5 steps)                                          */
-/* ------------------------------------------------------------------ */
-
-function VerticalTracker({
-  steps,
-  currentStepIndex,
-  className,
-}: PizzaTrackerProps) {
+function VerticalTracker({ steps, currentStepIndex, className }: PizzaTrackerProps) {
   return (
-    <div
-      className={cn(
-        "w-full rounded-xl bg-white px-6 py-6 shadow-sm border border-gray-100",
-        className,
-      )}
-    >
+    <div className={cn("w-full py-4", className)}>
       <div className="flex flex-col">
         {steps.map((step, i) => {
           const status = getStatus(i, currentStepIndex);
@@ -166,42 +130,42 @@ function VerticalTracker({
 
           return (
             <div key={step.id} className="flex gap-4">
-              {/* Left rail: circle + vertical line */}
               <div className="flex flex-col items-center">
                 <StepCircle index={i} status={status} />
-
-                {/* Vertical connector */}
                 {!isLast && (
                   <div
-                    className={cn(
-                      "w-1 flex-1 min-h-[24px] rounded-full transition-all duration-500",
-                      i < currentStepIndex && "bg-green-500",
-                      i === currentStepIndex && "bg-blue-600",
-                      i > currentStepIndex && "bg-gray-200",
-                    )}
+                    className="w-[3px] flex-1 min-h-[24px] rounded-full transition-all duration-500"
+                    style={{
+                      background:
+                        i < currentStepIndex
+                          ? "var(--success)"
+                          : i === currentStepIndex
+                            ? "var(--primary-color)"
+                            : "var(--bg-tertiary)",
+                    }}
                   />
                 )}
               </div>
 
-              {/* Right side: label + description */}
-              <div className={cn("pt-2 pb-6", isLast && "pb-0")}>
+              <div className={cn("pt-1 pb-6", isLast && "pb-0")}>
                 <p
-                  className={cn(
-                    "text-[14px] leading-tight",
-                    status === "completed" && "font-medium text-green-600",
-                    status === "current" && "font-semibold text-blue-600",
-                    status === "future" && "font-medium text-gray-400",
-                  )}
+                  className="text-sm"
+                  style={{
+                    color:
+                      status === "completed"
+                        ? "var(--success)"
+                        : status === "current"
+                          ? "var(--primary-color)"
+                          : "var(--text-muted)",
+                    fontWeight: status === "current" ? 700 : status === "completed" ? 600 : 500,
+                  }}
                 >
                   {step.label}
                 </p>
-
                 {step.description && (
                   <p
-                    className={cn(
-                      "mt-1 text-[13px] leading-snug",
-                      status === "current" ? "text-gray-600" : "text-gray-500",
-                    )}
+                    className="mt-1 text-[13px] leading-snug"
+                    style={{ color: "var(--text-muted)" }}
                   >
                     {step.description}
                   </p>
@@ -215,16 +179,10 @@ function VerticalTracker({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* PUBLIC EXPORT                                                        */
-/* ------------------------------------------------------------------ */
-
 export function PizzaTracker(props: PizzaTrackerProps) {
-  const useVertical = props.steps.length > 5;
-
-  if (useVertical) {
-    return <VerticalTracker {...props} />;
-  }
-
-  return <HorizontalTracker {...props} />;
+  return props.steps.length > 5 ? (
+    <VerticalTracker {...props} />
+  ) : (
+    <HorizontalTracker {...props} />
+  );
 }

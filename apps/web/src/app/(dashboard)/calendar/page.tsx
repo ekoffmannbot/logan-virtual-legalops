@@ -42,16 +42,12 @@ const DOT_COLORS: Record<string, string> = {
   yellow: "bg-yellow-500",
 };
 
-/** Map event types to badge styling. */
+/** Map event types to badge styling (dark theme). */
 const TYPE_BADGE: Record<string, { bg: string; text: string; label: string }> = {
-  audiencia: { bg: "bg-blue-100", text: "text-blue-800", label: "Audiencia" },
-  reunion: { bg: "bg-green-100", text: "text-green-800", label: "Reuni\u00f3n" },
-  plazo: { bg: "bg-red-100", text: "text-red-800", label: "Plazo" },
-  seguimiento: {
-    bg: "bg-yellow-100",
-    text: "text-yellow-800",
-    label: "Seguimiento",
-  },
+  audiencia: { bg: "rgba(99,102,241,0.2)", text: "var(--primary-color)", label: "Audiencia" },
+  reunion: { bg: "rgba(34,197,94,0.2)", text: "var(--success)", label: "Reuni\u00f3n" },
+  plazo: { bg: "rgba(239,68,68,0.2)", text: "var(--danger)", label: "Plazo" },
+  seguimiento: { bg: "rgba(245,158,11,0.2)", text: "var(--warning)", label: "Seguimiento" },
 };
 
 /**
@@ -145,10 +141,17 @@ export default function CalendarPage() {
       event.title,
       <div className="space-y-6">
         {/* Event summary */}
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+        <div
+          className="rounded-xl p-4 space-y-3"
+          style={{
+            background: "var(--bg-card)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: 16,
+          }}
+        >
           <h3
-            className="font-semibold text-gray-800"
-            style={{ fontSize: "15px" }}
+            className="font-semibold"
+            style={{ fontSize: "15px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
           >
             Informaci\u00f3n del Evento
           </h3>
@@ -184,12 +187,8 @@ export default function CalendarPage() {
         {typeBadge && (
           <div className="flex items-center gap-2">
             <span
-              className={[
-                "inline-flex items-center rounded-full px-3 py-1 font-medium",
-                typeBadge.bg,
-                typeBadge.text,
-              ].join(" ")}
-              style={{ fontSize: "13px" }}
+              className="inline-flex items-center rounded-full px-3 py-1 font-medium"
+              style={{ fontSize: "13px", background: typeBadge.bg, color: typeBadge.text }}
             >
               {typeBadge.label}
             </span>
@@ -198,20 +197,30 @@ export default function CalendarPage() {
 
         {/* Location card */}
         {event.location && (
-          <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
-              <MapPin className="h-5 w-5 text-gray-500" />
+          <div
+            className="flex items-center gap-3 rounded-xl p-4"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--glass-border)",
+              borderRadius: 16,
+            }}
+          >
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+              style={{ background: "var(--bg-tertiary)" }}
+            >
+              <MapPin className="h-5 w-5" style={{ color: "var(--text-muted)" }} />
             </div>
             <div className="min-w-0 flex-1">
               <p
-                className="font-medium text-gray-500"
-                style={{ fontSize: "13px" }}
+                className="font-medium"
+                style={{ fontSize: "13px", color: "var(--text-muted)" }}
               >
                 Ubicaci\u00f3n
               </p>
               <p
-                className="font-semibold text-gray-900"
-                style={{ fontSize: "14px" }}
+                className="font-semibold"
+                style={{ fontSize: "14px", color: "var(--text-primary)" }}
               >
                 {event.location}
               </p>
@@ -221,20 +230,30 @@ export default function CalendarPage() {
 
         {/* Matter link */}
         {event.matterId && (
-          <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100">
-              <Scale className="h-5 w-5 text-blue-600" />
+          <div
+            className="flex items-center gap-3 rounded-xl p-4"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--glass-border)",
+              borderRadius: 16,
+            }}
+          >
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+              style={{ background: "rgba(99,102,241,0.2)" }}
+            >
+              <Scale className="h-5 w-5" style={{ color: "var(--primary-color)" }} />
             </div>
             <div className="min-w-0 flex-1">
               <p
-                className="font-medium text-gray-500"
-                style={{ fontSize: "13px" }}
+                className="font-medium"
+                style={{ fontSize: "13px", color: "var(--text-muted)" }}
               >
                 Caso Asociado
               </p>
               <p
-                className="font-semibold text-gray-900"
-                style={{ fontSize: "14px" }}
+                className="font-semibold"
+                style={{ fontSize: "14px", color: "var(--text-primary)" }}
               >
                 {event.matterId}
               </p>
@@ -249,7 +268,7 @@ export default function CalendarPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--primary-color)" }} />
       </div>
     );
   }
@@ -257,7 +276,7 @@ export default function CalendarPage() {
   /* ---- Error ---- */
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-2 text-red-600">
+      <div className="flex flex-col items-center justify-center py-20 gap-2" style={{ color: "var(--danger)" }}>
         <AlertTriangle className="h-8 w-8" />
         <p style={{ fontSize: "14px" }}>Error al cargar los eventos</p>
       </div>
@@ -271,17 +290,20 @@ export default function CalendarPage() {
       {/* HEADER                                                        */}
       {/* ============================================================ */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-          <Calendar className="h-5 w-5 text-blue-600" />
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-full"
+          style={{ background: "rgba(99,102,241,0.2)" }}
+        >
+          <Calendar className="h-5 w-5" style={{ color: "var(--primary-color)" }} />
         </div>
         <div>
           <h1
-            className="text-2xl font-bold text-gray-900"
-            style={{ fontSize: "24px" }}
+            className="text-2xl font-bold"
+            style={{ fontSize: "24px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
           >
             Mi Agenda
           </h1>
-          <p className="text-gray-500 capitalize" style={{ fontSize: "14px" }}>
+          <p className="capitalize" style={{ fontSize: "14px", color: "var(--text-muted)" }}>
             {getTodayFormatted()}
           </p>
         </div>
@@ -292,16 +314,19 @@ export default function CalendarPage() {
       {/* ============================================================ */}
       {groupedEvents.size === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
-            <CalendarDays className="h-8 w-8 text-gray-400" />
+          <div
+            className="flex h-16 w-16 items-center justify-center rounded-full mb-4"
+            style={{ background: "var(--bg-tertiary)" }}
+          >
+            <CalendarDays className="h-8 w-8" style={{ color: "var(--text-muted)" }} />
           </div>
           <p
-            className="font-medium text-gray-700"
-            style={{ fontSize: "16px" }}
+            className="font-medium"
+            style={{ fontSize: "16px", color: "var(--text-secondary)" }}
           >
             No hay eventos pr\u00f3ximos
           </p>
-          <p className="text-gray-500 mt-1" style={{ fontSize: "14px" }}>
+          <p className="mt-1" style={{ fontSize: "14px", color: "var(--text-muted)" }}>
             No tienes eventos programados en los pr\u00f3ximos 30 d\u00edas.
           </p>
         </div>
@@ -311,8 +336,8 @@ export default function CalendarPage() {
             <div key={dateKey}>
               {/* Date group header */}
               <h2
-                className="font-bold text-gray-900 mb-3 capitalize"
-                style={{ fontSize: "16px" }}
+                className="font-bold mb-3 capitalize"
+                style={{ fontSize: "16px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
               >
                 {formatDateLabel(dateKey)}
               </h2>
@@ -336,11 +361,22 @@ export default function CalendarPage() {
                           handleEventClick(event);
                         }
                       }}
-                      className={[
-                        "flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4",
-                        "transition-all duration-200 ease-in-out",
-                        "hover:shadow-md hover:-translate-y-0.5 cursor-pointer",
-                      ].join(" ")}
+                      className="flex items-start gap-3 p-4 transition-all duration-200 ease-in-out cursor-pointer"
+                      style={{
+                        background: "var(--bg-card)",
+                        border: "1px solid var(--glass-border)",
+                        borderRadius: 16,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "var(--bg-card-hover)";
+                        e.currentTarget.style.borderColor = "var(--glass-border-hover)";
+                        e.currentTarget.style.transform = "translateY(-2px)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "var(--bg-card)";
+                        e.currentTarget.style.borderColor = "var(--glass-border)";
+                        e.currentTarget.style.transform = "translateY(0)";
+                      }}
                     >
                       {/* Colored dot */}
                       <div
@@ -356,16 +392,16 @@ export default function CalendarPage() {
                           {/* Time */}
                           {event.time && (
                             <span
-                              className="font-bold text-gray-900"
-                              style={{ fontSize: "15px" }}
+                              className="font-bold"
+                              style={{ fontSize: "15px", color: "var(--text-primary)" }}
                             >
                               {event.time}
                             </span>
                           )}
                           {/* Title */}
                           <span
-                            className="font-semibold text-gray-800 truncate"
-                            style={{ fontSize: "16px" }}
+                            className="font-semibold truncate"
+                            style={{ fontSize: "16px", color: "var(--text-primary)" }}
                           >
                             {event.title}
                           </span>
@@ -375,20 +411,16 @@ export default function CalendarPage() {
                         <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                           {typeBadge && (
                             <span
-                              className={[
-                                "inline-flex items-center rounded-full px-2.5 py-0.5 font-medium",
-                                typeBadge.bg,
-                                typeBadge.text,
-                              ].join(" ")}
-                              style={{ fontSize: "13px" }}
+                              className="inline-flex items-center rounded-full px-2.5 py-0.5 font-medium"
+                              style={{ fontSize: "13px", background: typeBadge.bg, color: typeBadge.text }}
                             >
                               {typeBadge.label}
                             </span>
                           )}
                           {event.location && (
                             <span
-                              className="inline-flex items-center gap-1 text-gray-500"
-                              style={{ fontSize: "13px" }}
+                              className="inline-flex items-center gap-1"
+                              style={{ fontSize: "13px", color: "var(--text-muted)" }}
                             >
                               <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                               {event.location}
@@ -423,12 +455,12 @@ function DetailField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p
-        className="font-medium text-gray-500 uppercase tracking-wide"
-        style={{ fontSize: "12px" }}
+        className="font-medium uppercase tracking-wide"
+        style={{ fontSize: "12px", color: "var(--text-muted)" }}
       >
         {label}
       </p>
-      <p className="text-gray-900 mt-0.5 capitalize" style={{ fontSize: "14px" }}>
+      <p className="mt-0.5 capitalize" style={{ fontSize: "14px", color: "var(--text-primary)" }}>
         {value}
       </p>
     </div>

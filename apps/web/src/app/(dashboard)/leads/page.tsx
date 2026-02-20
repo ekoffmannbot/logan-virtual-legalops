@@ -136,7 +136,7 @@ export default function LeadsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--primary-color)" }} />
       </div>
     );
   }
@@ -145,11 +145,11 @@ export default function LeadsPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-        <AlertTriangle className="h-10 w-10 text-red-500" />
-        <p className="font-medium text-gray-800" style={{ fontSize: "16px" }}>
+        <AlertTriangle className="h-10 w-10" style={{ color: "var(--danger)" }} />
+        <p className="font-medium" style={{ fontSize: "16px", color: "var(--text-primary)" }}>
           Error al cargar los leads
         </p>
-        <p className="text-gray-500" style={{ fontSize: "14px" }}>
+        <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>
           No se pudo obtener la informacion. Intente nuevamente.
         </p>
       </div>
@@ -161,15 +161,21 @@ export default function LeadsPage() {
     <div className="space-y-5">
       {/* ============ HEADER ============ */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-          <UserPlus className="h-5 w-5 text-blue-600" />
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-full"
+          style={{ background: "rgba(99,102,241,0.2)" }}
+        >
+          <UserPlus className="h-5 w-5" style={{ color: "var(--primary-color)" }} />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900" style={{ fontSize: "24px" }}>
+        <h1
+          className="text-2xl font-bold"
+          style={{ fontSize: "24px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+        >
           Recepcion de Clientes
         </h1>
         <span
-          className="inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 font-semibold"
-          style={{ fontSize: "13px" }}
+          className="inline-flex items-center justify-center rounded-full px-2.5 py-0.5 font-semibold"
+          style={{ fontSize: "13px", background: "rgba(99,102,241,0.2)", color: "var(--primary-color)" }}
         >
           {leads.length}
         </span>
@@ -184,13 +190,13 @@ export default function LeadsPage() {
               key={chip.key}
               type="button"
               onClick={() => setFilter(chip.key)}
-              className={[
-                "rounded-full px-4 py-1.5 font-medium transition-colors",
-                active
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-              ].join(" ")}
-              style={{ fontSize: "14px" }}
+              className="rounded-full px-4 py-1.5 font-medium transition-colors"
+              style={{
+                fontSize: "14px",
+                background: active ? "var(--primary-color)" : "var(--bg-tertiary)",
+                color: active ? "#ffffff" : "var(--text-secondary)",
+                border: active ? "none" : "1px solid var(--glass-border)",
+              }}
             >
               {chip.label}
             </button>
@@ -201,13 +207,16 @@ export default function LeadsPage() {
       {/* ============ LISTA / EMPTY ============ */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
-            <UserPlus className="h-8 w-8 text-gray-400" />
+          <div
+            className="flex h-16 w-16 items-center justify-center rounded-full mb-4"
+            style={{ background: "var(--bg-tertiary)" }}
+          >
+            <UserPlus className="h-8 w-8" style={{ color: "var(--text-muted)" }} />
           </div>
-          <p className="font-medium text-gray-700" style={{ fontSize: "16px" }}>
+          <p className="font-medium" style={{ fontSize: "16px", color: "var(--text-primary)" }}>
             No hay leads pendientes
           </p>
-          <p className="text-gray-500 mt-1" style={{ fontSize: "14px" }}>
+          <p className="mt-1" style={{ fontSize: "14px", color: "var(--text-muted)" }}>
             {filter !== "todos"
               ? "No hay leads con este filtro."
               : "Cuando lleguen nuevos prospectos apareceran aqui."}
@@ -266,8 +275,11 @@ function LeadDetail({
   return (
     <div className="space-y-6">
       {/* ---- Datos del contacto ---- */}
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-        <h3 className="font-semibold text-gray-800" style={{ fontSize: "15px" }}>
+      <div
+        className="rounded-xl p-4 space-y-3"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+      >
+        <h3 className="font-semibold" style={{ fontSize: "15px", color: "var(--text-primary)" }}>
           Datos del Contacto
         </h3>
 
@@ -287,8 +299,11 @@ function LeadDetail({
       </div>
 
       {/* ---- Origen y asignacion ---- */}
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-        <h3 className="font-semibold text-gray-800" style={{ fontSize: "15px" }}>
+      <div
+        className="rounded-xl p-4 space-y-3"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+      >
+        <h3 className="font-semibold" style={{ fontSize: "15px", color: "var(--text-primary)" }}>
           Informacion del Lead
         </h3>
 
@@ -305,13 +320,16 @@ function LeadDetail({
 
       {/* ---- Notas ---- */}
       {lead.notes && (
-        <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
-          <h3 className="font-semibold text-gray-800" style={{ fontSize: "15px" }}>
+        <div
+          className="rounded-xl p-4 space-y-2"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+        >
+          <h3 className="font-semibold" style={{ fontSize: "15px", color: "var(--text-primary)" }}>
             Notas
           </h3>
           <p
-            className="text-gray-600 leading-relaxed whitespace-pre-wrap"
-            style={{ fontSize: "14px" }}
+            className="leading-relaxed whitespace-pre-wrap"
+            style={{ fontSize: "14px", color: "var(--text-secondary)" }}
           >
             {lead.notes}
           </p>
@@ -320,7 +338,7 @@ function LeadDetail({
 
       {/* ---- Pizza Tracker ---- */}
       <div className="space-y-2">
-        <h3 className="font-semibold text-gray-800" style={{ fontSize: "15px" }}>
+        <h3 className="font-semibold" style={{ fontSize: "15px", color: "var(--text-primary)" }}>
           Progreso
         </h3>
         <PizzaTracker
@@ -341,18 +359,18 @@ function InfoRow({
   label,
   value,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   label: string;
   value: string;
 }) {
   return (
     <div className="flex items-center gap-3">
-      <Icon className="h-4 w-4 text-gray-400 shrink-0" />
+      <Icon className="h-4 w-4 shrink-0" style={{ color: "var(--text-muted)" }} />
       <div className="min-w-0">
-        <p className="text-gray-500 leading-tight" style={{ fontSize: "13px" }}>
+        <p className="leading-tight" style={{ fontSize: "13px", color: "var(--text-muted)" }}>
           {label}
         </p>
-        <p className="font-medium text-gray-900 leading-tight truncate" style={{ fontSize: "14px" }}>
+        <p className="font-medium leading-tight truncate" style={{ fontSize: "14px", color: "var(--text-primary)" }}>
           {value}
         </p>
       </div>
@@ -364,12 +382,12 @@ function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p
-        className="font-medium text-gray-500 uppercase tracking-wide"
-        style={{ fontSize: "13px" }}
+        className="font-medium uppercase tracking-wide"
+        style={{ fontSize: "13px", color: "var(--text-muted)" }}
       >
         {label}
       </p>
-      <p className="text-gray-900 mt-0.5" style={{ fontSize: "14px" }}>
+      <p className="mt-0.5" style={{ fontSize: "14px", color: "var(--text-primary)" }}>
         {value}
       </p>
     </div>

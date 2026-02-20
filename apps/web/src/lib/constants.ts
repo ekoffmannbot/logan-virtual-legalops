@@ -119,40 +119,44 @@ export const DEADLINE_SEVERITY_LABELS: Record<string, string> = {
   critical: "Crítica",
 };
 
+/* ------------------------------------------------------------------ */
+/* STATUS COLORS – Dark glassmorphism theme (CSS class pairs)          */
+/* ------------------------------------------------------------------ */
+
 export const STATUS_COLORS: Record<string, string> = {
   // Generic statuses
-  new: "bg-blue-100 text-blue-800",
-  open: "bg-blue-100 text-blue-800",
-  draft: "bg-gray-100 text-gray-800",
-  sent: "bg-yellow-100 text-yellow-800",
-  accepted: "bg-green-100 text-green-800",
-  approved: "bg-green-100 text-green-800",
-  signed: "bg-green-100 text-green-800",
-  complete: "bg-green-100 text-green-800",
-  closed: "bg-gray-100 text-gray-800",
-  done: "bg-green-100 text-green-800",
-  paid: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  expired: "bg-red-100 text-red-800",
-  lost: "bg-red-100 text-red-800",
-  terminated: "bg-red-100 text-red-800",
-  overdue: "bg-red-100 text-red-800",
-  cancelled: "bg-gray-100 text-gray-800",
-  in_progress: "bg-yellow-100 text-yellow-800",
-  pending_review: "bg-yellow-100 text-yellow-800",
-  pending_data: "bg-orange-100 text-orange-800",
-  drafting: "bg-blue-100 text-blue-800",
+  new: "badge-new",
+  open: "badge-new",
+  draft: "badge-muted",
+  sent: "badge-warning",
+  accepted: "badge-success",
+  approved: "badge-success",
+  signed: "badge-success",
+  complete: "badge-success",
+  closed: "badge-muted",
+  done: "badge-success",
+  paid: "badge-success",
+  rejected: "badge-danger",
+  expired: "badge-danger",
+  lost: "badge-danger",
+  terminated: "badge-danger",
+  overdue: "badge-danger",
+  cancelled: "badge-muted",
+  in_progress: "badge-warning",
+  pending_review: "badge-warning",
+  pending_data: "badge-warning",
+  drafting: "badge-new",
   // SLA
-  sla_breached_24h: "bg-orange-100 text-orange-800",
-  sla_breached_48h: "bg-red-100 text-red-800",
+  sla_breached_24h: "badge-warning",
+  sla_breached_48h: "badge-danger",
   // Collection
-  escalated: "bg-red-100 text-red-800",
-  suspended: "bg-orange-100 text-orange-800",
+  escalated: "badge-danger",
+  suspended: "badge-warning",
   // Severity
-  low: "bg-gray-100 text-gray-800",
-  med: "bg-yellow-100 text-yellow-800",
-  high: "bg-orange-100 text-orange-800",
-  critical: "bg-red-100 text-red-800",
+  low: "badge-muted",
+  med: "badge-warning",
+  high: "badge-warning",
+  critical: "badge-danger",
 };
 
 export const SIDEBAR_ITEMS = [
@@ -204,29 +208,33 @@ export const ENTITY_ICONS: Record<string, string> = {
 /* URGENCY STYLING                                                     */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* URGENCY STYLING – Dark glassmorphism theme                          */
+/* ------------------------------------------------------------------ */
+
 export const URGENCY_STYLES = {
   urgent: {
-    border: "border-red-300",
-    bg: "bg-red-50",
-    text: "text-red-700",
-    badge: "bg-red-100 text-red-800",
+    border: "border-red-500/30",
+    bg: "bg-red-500/10",
+    text: "text-red-400",
+    badge: "badge-danger",
     dot: "bg-red-500",
     label: "Urgente",
   },
   warning: {
-    border: "border-yellow-300",
-    bg: "bg-yellow-50",
-    text: "text-yellow-700",
-    badge: "bg-yellow-100 text-yellow-800",
+    border: "border-yellow-500/30",
+    bg: "bg-yellow-500/10",
+    text: "text-yellow-400",
+    badge: "badge-warning",
     dot: "bg-yellow-500",
-    label: "Atención",
+    label: "Atenci\u00f3n",
   },
   normal: {
-    border: "border-gray-200",
-    bg: "bg-white",
-    text: "text-gray-700",
-    badge: "bg-gray-100 text-gray-800",
-    dot: "bg-gray-400",
+    border: "border-slate-500/20",
+    bg: "bg-slate-500/5",
+    text: "text-slate-400",
+    badge: "badge-muted",
+    dot: "bg-slate-400",
     label: "Normal",
   },
 } as const;

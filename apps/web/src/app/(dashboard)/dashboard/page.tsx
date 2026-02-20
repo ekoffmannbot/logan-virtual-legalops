@@ -5,28 +5,24 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { getProcessProgress } from "@/lib/process-status-map";
-import { InboxItem } from "@/components/shared/inbox-item";
-import { AgentLog } from "@/components/shared/agent-log";
-import type { AgentLogEntry } from "@/components/shared/agent-log";
 import { Drawer, useDrawer } from "@/components/layout/drawer";
 import { PizzaTracker } from "@/components/shared/pizza-tracker";
 import { ApprovePanel } from "@/components/shared/approve-panel";
 import {
   AlertTriangle,
-  Mail,
-  FileText,
   UserPlus,
+  FileText,
   Briefcase,
   DollarSign,
-  Stamp,
-  ClipboardCheck,
   Loader2,
   Bot,
-  Filter,
-  ChevronDown,
-  ChevronUp,
-  CheckCircle2,
+  ArrowUpRight,
+  ArrowDownRight,
+  TrendingUp,
+  Clock,
+  ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -82,54 +78,116 @@ interface ActionItems {
 }
 
 /* ------------------------------------------------------------------ */
-/* Helpers                                                             */
+/* Stat card config                                                    */
 /* ------------------------------------------------------------------ */
 
-type FilterMode = "todos" | "urgente" | "agentes";
-
-const TYPE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  email: Mail,
-  email_ticket: Mail,
-  proposal: FileText,
-  lead: UserPlus,
-  matter: Briefcase,
-  collection: DollarSign,
-  contract: Stamp,
-  notary: Stamp,
-  case_review: ClipboardCheck,
-  scraper: Bot,
-};
-
-function getIconForType(type: string) {
-  return TYPE_ICON_MAP[type] || FileText;
-}
-
-/* ------------------------------------------------------------------ */
-/* Unified inbox item                                                  */
-/* ------------------------------------------------------------------ */
-
-interface UnifiedItem {
-  id: string;
-  type: string;
-  title: string;
-  subtitle: string;
-  actionLabel: string;
+interface StatConfig {
+  label: string;
+  key: keyof ActionItems["quickNumbers"];
   icon: React.ReactNode;
   iconBg: string;
-  iconColor: string;
-  timeText?: string;
-  timeUrgent: boolean;
-  badge?: string;
-  badgeColor?: string;
-  priority: number; // 0 = urgent, 1 = today, 2 = inProgress
-  source: "urgent" | "today" | "inProgress";
-  hasAgentInsight: boolean;
-  // Extra data for drawer
-  processId?: string;
-  status?: string;
-  amount?: string;
-  agentInsight?: { agentName: string; message: string; type: string };
+  trend: string;
+  trendUp: boolean;
 }
+
+const STAT_CARDS: StatConfig[] = [
+  {
+    label: "Leads Activos",
+    key: "leads",
+    icon: <UserPlus className="h-6 w-6" style={{ color: "#6366f1" }} />,
+    iconBg: "rgba(99, 102, 241, 0.2)",
+    trend: "+12%",
+    trendUp: true,
+  },
+  {
+    label: "Propuestas",
+    key: "proposals",
+    icon: <FileText className="h-6 w-6" style={{ color: "#2dd4bf" }} />,
+    iconBg: "rgba(45, 212, 191, 0.2)",
+    trend: "+8%",
+    trendUp: true,
+  },
+  {
+    label: "Casos Abiertos",
+    key: "matters",
+    icon: <Briefcase className="h-6 w-6" style={{ color: "#f59e0b" }} />,
+    iconBg: "rgba(245, 158, 11, 0.2)",
+    trend: "+3%",
+    trendUp: true,
+  },
+  {
+    label: "Vencidos",
+    key: "overdue",
+    icon: <DollarSign className="h-6 w-6" style={{ color: "#ef4444" }} />,
+    iconBg: "rgba(239, 68, 68, 0.2)",
+    trend: "-5%",
+    trendUp: false,
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* Process card config                                                 */
+/* ------------------------------------------------------------------ */
+
+interface ProcessConfig {
+  title: string;
+  desc: string;
+  emoji: string;
+  iconBg: string;
+  href: string;
+  roles: string[];
+}
+
+const PROCESS_CARDS: ProcessConfig[] = [
+  {
+    title: "Recepci\u00f3n de Clientes",
+    desc: "Gesti\u00f3n de leads, agendamiento y primer contacto",
+    emoji: "\u{1F4CB}",
+    iconBg: "linear-gradient(135deg, rgba(99,102,241,0.3), rgba(99,102,241,0.1))",
+    href: "/leads",
+    roles: ["Secretaria", "Agente IA"],
+  },
+  {
+    title: "Atenci\u00f3n Telef\u00f3nica",
+    desc: "Llamadas, seguimiento y derivaci\u00f3n",
+    emoji: "\u{1F4DE}",
+    iconBg: "linear-gradient(135deg, rgba(45,212,191,0.3), rgba(45,212,191,0.1))",
+    href: "/matters",
+    roles: ["Secretaria"],
+  },
+  {
+    title: "Propuestas",
+    desc: "Creaci\u00f3n, env\u00edo y seguimiento de propuestas",
+    emoji: "\u{1F4DD}",
+    iconBg: "linear-gradient(135deg, rgba(245,158,11,0.3), rgba(245,158,11,0.1))",
+    href: "/proposals",
+    roles: ["Abogado", "Agente IA"],
+  },
+  {
+    title: "Contratos",
+    desc: "Redacci\u00f3n, revisi\u00f3n y firma de contratos",
+    emoji: "\u{1F4C4}",
+    iconBg: "linear-gradient(135deg, rgba(236,72,153,0.3), rgba(236,72,153,0.1))",
+    href: "/contracts",
+    roles: ["Abogado", "Admin"],
+  },
+  {
+    title: "Notar\u00eda",
+    desc: "Gesti\u00f3n notarial y documentos legales",
+    emoji: "\u{1F3DB}\u{FE0F}",
+    iconBg: "linear-gradient(135deg, rgba(168,85,247,0.3), rgba(168,85,247,0.1))",
+    href: "/notary",
+    roles: ["Procurador", "Notario"],
+  },
+  {
+    title: "Correos & Tickets",
+    desc: "Emails, SLA y gesti\u00f3n de tickets",
+    emoji: "\u{1F4E7}",
+    iconBg: "linear-gradient(135deg, rgba(59,130,246,0.3), rgba(59,130,246,0.1))",
+    href: "/email-tickets",
+    roles: ["Secretaria", "Agente IA"],
+  },
+];
 
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
@@ -137,10 +195,6 @@ interface UnifiedItem {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [filter, setFilter] = useState<FilterMode>("todos");
-  const [agentSectionOpen, setAgentSectionOpen] = useState(false);
-  const [completedOpen, setCompletedOpen] = useState(false);
-
   const { isOpen, drawerContent, drawerTitle, openDrawer, closeDrawer } =
     useDrawer();
 
@@ -153,7 +207,7 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--primary-color)" }} />
       </div>
     );
   }
@@ -162,143 +216,24 @@ export default function DashboardPage() {
   if (error || !data) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <AlertTriangle className="h-10 w-10 text-red-500 mb-3" />
-        <p className="text-lg font-medium" style={{ fontSize: "16px" }}>
+        <AlertTriangle className="mb-3 h-10 w-10" style={{ color: "var(--danger)" }} />
+        <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>
           Error al cargar el panel
         </p>
-        <p
-          className="text-gray-500 mt-1"
-          style={{ fontSize: "14px" }}
-        >
-          No se pudo obtener la informaci&oacute;n. Intente nuevamente.
+        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+          No se pudo obtener la informaci{"\u00f3"}n. Intente nuevamente.
         </p>
       </div>
     );
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Build unified inbox list                                          */
-  /* ---------------------------------------------------------------- */
-
   const firstName = user?.full_name?.split(" ")[0] || "Usuario";
+  const totalPendientes = data.urgent.length + data.today.length + data.inProgress.length;
 
-  // Map agent insights by index for easy lookup
-  const insightsByIndex = data.agentInsights;
-
-  const urgentItems: UnifiedItem[] = data.urgent.map((item, i) => ({
-    id: item.id,
-    type: item.type,
-    title: item.title,
-    subtitle: item.subtitle || item.urgencyText || "",
-    actionLabel: item.actionLabel,
-    icon: <AlertTriangle className="h-5 w-5" />,
-    iconBg: "bg-red-100",
-    iconColor: "text-red-600",
-    timeText: item.urgencyText,
-    timeUrgent: true,
-    badge: "Urgente",
-    badgeColor: "bg-red-100 text-red-700",
-    priority: 0,
-    source: "urgent" as const,
-    hasAgentInsight: i < insightsByIndex.length && insightsByIndex[i]?.type === "warning",
-    amount: item.amount,
-    agentInsight:
-      i < insightsByIndex.length
-        ? insightsByIndex[i]
-        : undefined,
-  }));
-
-  const todayItems: UnifiedItem[] = data.today.map((item, i) => {
-    const Icon = getIconForType(item.type);
-    return {
-      id: item.id,
-      type: item.type,
-      title: item.title,
-      subtitle: item.subtitle || "",
-      actionLabel: item.actionLabel,
-      icon: <Icon className="h-5 w-5" />,
-      iconBg: "bg-yellow-100",
-      iconColor: "text-yellow-600",
-      timeText: "Hoy",
-      timeUrgent: false,
-      badge: "Hoy",
-      badgeColor: "bg-yellow-100 text-yellow-700",
-      priority: 1,
-      source: "today" as const,
-      hasAgentInsight: insightsByIndex.some(
-        (ins) => ins.type === "suggestion"
-      ),
-      agentInsight: insightsByIndex.find(
-        (ins) => ins.type === "suggestion" || ins.type === "info"
-      ),
-    };
-  });
-
-  const inProgressItems: UnifiedItem[] = data.inProgress.map((item) => {
-    const Icon = getIconForType(item.type);
-    const progress = getProcessProgress(item.processId, item.status);
-    return {
-      id: item.id,
-      type: item.type,
-      title: item.title,
-      subtitle: item.subtitle || `${progress.stepLabel} - ${progress.percentage}%`,
-      actionLabel: "Ver progreso",
-      icon: <Icon className="h-5 w-5" />,
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
-      timeText: `${progress.percentage}%`,
-      timeUrgent: false,
-      badge: "En curso",
-      badgeColor: "bg-blue-100 text-blue-700",
-      priority: 2,
-      source: "inProgress" as const,
-      hasAgentInsight: false,
-      processId: item.processId,
-      status: item.status,
-    };
-  });
-
-  const allItems: UnifiedItem[] = [
-    ...urgentItems,
-    ...todayItems,
-    ...inProgressItems,
-  ].sort((a, b) => a.priority - b.priority);
-
-  /* ---- Filters ---- */
-  const filteredItems =
-    filter === "urgente"
-      ? allItems.filter((i) => i.source === "urgent")
-      : filter === "agentes"
-        ? allItems.filter((i) => i.hasAgentInsight)
-        : allItems;
-
-  const totalPendientes = allItems.length;
-
-  /* ---- Agent log entries ---- */
-  const agentLogEntries: AgentLogEntry[] = data.agentInsights.map(
-    (insight, i) => ({
-      id: `agent-${i}`,
-      agentName: insight.agentName,
-      action: insight.message,
-      timestamp: new Date(Date.now() - i * 3600000).toISOString(),
-      status:
-        insight.type === "warning"
-          ? ("pending_approval" as const)
-          : ("completed" as const),
-      actionRequired:
-        insight.type === "warning" || insight.type === "suggestion",
-    })
-  );
-
-  /* ---------------------------------------------------------------- */
-  /* Drawer handlers                                                   */
-  /* ---------------------------------------------------------------- */
-
-  function handleCardClick(item: UnifiedItem) {
-    if (item.source === "inProgress" && item.processId && item.status) {
+  /* ---- Drawer handlers ---- */
+  function handleTaskClick(item: { id: string; type: string; title: string; subtitle?: string; processId?: string; status?: string; amount?: string }) {
+    if (item.processId && item.status) {
       const progress = getProcessProgress(item.processId, item.status);
-
-      // Build PizzaTracker steps from the process
       const steps = Array.from({ length: progress.total }, (_, i) => ({
         id: `step-${i}`,
         label:
@@ -311,288 +246,468 @@ export default function DashboardPage() {
           i === progress.current ? progress.stepDescription : undefined,
       }));
 
-      openDrawer(
-        item.title,
+      openDrawer(item.title, (
         <div className="space-y-6">
-          <div>
-            <p
-              className="text-gray-600 mb-4"
-              style={{ fontSize: "14px" }}
-            >
-              {item.subtitle}
-            </p>
-            {progress.agentName && (
-              <div className="flex items-center gap-2 mb-4">
-                <Bot className="h-4 w-4 text-gray-400" />
-                <span
-                  className="text-gray-500"
-                  style={{ fontSize: "13px" }}
-                >
-                  Agente: {progress.agentName}
-                </span>
-              </div>
-            )}
-          </div>
-          <PizzaTracker
-            steps={steps}
-            currentStepIndex={progress.current}
-          />
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            {item.subtitle}
+          </p>
+          <PizzaTracker steps={steps} currentStepIndex={progress.current} />
         </div>
-      );
+      ));
       return;
     }
 
-    // Urgent or today items with agent insight -> ApprovePanel
-    if (item.agentInsight) {
-      openDrawer(
-        item.title,
+    const insight = data?.agentInsights?.find(
+      (ins) => ins.type === "warning" || ins.type === "suggestion"
+    );
+    if (insight) {
+      openDrawer(item.title, (
         <ApprovePanel
-          agentName={item.agentInsight.agentName}
-          agentAction={item.agentInsight.message}
-          content={`${item.title}\n\n${item.subtitle}${item.amount ? `\n\nMonto: ${item.amount}` : ""}`}
+          agentName={insight.agentName}
+          agentAction={insight.message}
+          content={`${item.title}\n\n${item.subtitle || ""}${item.amount ? `\n\nMonto: ${item.amount}` : ""}`}
           onApprove={() => closeDrawer()}
           onModify={() => closeDrawer()}
           onReject={() => closeDrawer()}
         />
-      );
+      ));
       return;
     }
 
-    // Fallback: simple detail view
-    openDrawer(
-      item.title,
+    openDrawer(item.title, (
       <div className="space-y-4">
-        <p className="text-gray-700" style={{ fontSize: "15px" }}>
+        <p style={{ color: "var(--text-secondary)", fontSize: 15 }}>
           {item.subtitle}
         </p>
         {item.amount && (
-          <p className="text-gray-900 font-semibold" style={{ fontSize: "16px" }}>
+          <p className="font-semibold" style={{ color: "var(--accent-color)", fontSize: 16 }}>
             Monto: {item.amount}
           </p>
         )}
-        <p className="text-gray-400" style={{ fontSize: "13px" }}>
-          Tipo: {item.type} &middot; {item.badge}
-        </p>
       </div>
-    );
+    ));
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Render                                                            */
-  /* ---------------------------------------------------------------- */
+  /* ================================================================ */
+  /* RENDER                                                            */
+  /* ================================================================ */
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
+    <div className="space-y-8">
       {/* ============================================================ */}
-      {/* TOP: Greeting bar                                             */}
+      {/* Welcome Banner                                                */}
       {/* ============================================================ */}
-      <div className="flex items-start justify-between gap-4">
+      <div
+        className="animate-fade-in-up flex flex-col items-start justify-between gap-6 rounded-3xl p-8 md:flex-row md:items-center"
+        style={{
+          background: "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(45,212,191,0.1))",
+          border: "1px solid var(--glass-border)",
+        }}
+      >
         <div>
           <h1
-            className="font-bold text-gray-900"
-            style={{ fontSize: "24px" }}
+            className="mb-2 text-[28px] font-extrabold"
+            style={{
+              fontFamily: "'Outfit', sans-serif",
+              letterSpacing: "-0.5px",
+              color: "var(--text-primary)",
+            }}
           >
-            Buenos d&iacute;as, {firstName}
+            Buenos d{"\u00ed"}as, {firstName}
           </h1>
-          <p
-            className="mt-1 text-gray-500"
-            style={{ fontSize: "15px" }}
-          >
+          <p style={{ color: "var(--text-secondary)", fontSize: 15 }}>
             {totalPendientes > 0
-              ? `${totalPendientes} cosas pendientes`
+              ? `Tienes ${totalPendientes} tareas pendientes. ${data.urgent.length > 0 ? `${data.urgent.length} urgentes.` : ""}`
               : "Todo al d\u00eda. Sin tareas pendientes."}
           </p>
         </div>
 
-        {/* Filter chips */}
-        <div className="flex shrink-0 items-center gap-2">
-          {(
-            [
-              { key: "todos", label: "Todos" },
-              { key: "urgente", label: "Urgente" },
-              { key: "agentes", label: "Agentes" },
-            ] as const
-          ).map((chip) => (
-            <button
-              key={chip.key}
-              type="button"
-              onClick={() => setFilter(chip.key)}
-              className={[
-                "rounded-full px-3 py-1 font-medium transition-colors",
-                filter === chip.key
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-              ].join(" ")}
-              style={{ fontSize: "13px" }}
+        {/* Welcome quick stats */}
+        <div className="flex gap-8">
+          <div className="text-center">
+            <div
+              className="text-[32px] font-extrabold"
+              style={{
+                fontFamily: "'Outfit', sans-serif",
+                color: "var(--accent-color)",
+              }}
             >
-              {chip.label}
-            </button>
-          ))}
+              {totalPendientes}
+            </div>
+            <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+              Pendientes
+            </div>
+          </div>
+          <div className="text-center">
+            <div
+              className="text-[32px] font-extrabold"
+              style={{
+                fontFamily: "'Outfit', sans-serif",
+                color: "var(--accent-color)",
+              }}
+            >
+              {data.urgent.length}
+            </div>
+            <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+              Urgentes
+            </div>
+          </div>
+          <div className="text-center">
+            <div
+              className="text-[32px] font-extrabold"
+              style={{
+                fontFamily: "'Outfit', sans-serif",
+                color: "var(--accent-color)",
+              }}
+            >
+              {data.completed.length}
+            </div>
+            <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+              Completado
+            </div>
+          </div>
         </div>
       </div>
 
       {/* ============================================================ */}
-      {/* MIDDLE: The Inbox (bandeja)                                    */}
+      {/* Stat Cards Grid                                               */}
       {/* ============================================================ */}
-      <section aria-label="Bandeja de entrada">
-        {filteredItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 py-12 text-center">
-            <Filter className="h-8 w-8 text-gray-300 mb-3" />
-            <p
-              className="text-gray-500 font-medium"
-              style={{ fontSize: "15px" }}
+      <div className="stats-grid-4 grid grid-cols-4 gap-6">
+        {STAT_CARDS.map((stat, i) => (
+          <div
+            key={stat.key}
+            className="glass-card glass-card-interactive animate-fade-in-up relative overflow-hidden p-6"
+            style={{ animationDelay: `${(i + 1) * 0.1}s` }}
+          >
+            {/* Top gradient bar on hover (via CSS ::before in glass-card) */}
+            <div
+              className="absolute left-0 top-0 h-1 w-full opacity-0 transition-opacity duration-300"
+              style={{
+                background: "linear-gradient(90deg, var(--primary-color), var(--accent-color))",
+              }}
+            />
+
+            <div
+              className="mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-[14px]"
+              style={{ background: stat.iconBg }}
             >
-              No hay elementos con este filtro
-            </p>
-            <button
-              type="button"
-              onClick={() => setFilter("todos")}
-              className="mt-2 text-blue-600 font-medium hover:underline"
-              style={{ fontSize: "14px" }}
+              {stat.icon}
+            </div>
+
+            <div
+              className="mb-1 text-4xl font-extrabold"
+              style={{
+                fontFamily: "'Outfit', sans-serif",
+                letterSpacing: "-1px",
+                color: "var(--text-primary)",
+              }}
             >
-              Ver todos
-            </button>
+              {data.quickNumbers[stat.key]}
+            </div>
+            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              {stat.label}
+            </div>
+
+            {/* Trend badge */}
+            <div
+              className="absolute right-6 top-6 flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold"
+              style={{
+                background: stat.trendUp
+                  ? "rgba(34, 197, 94, 0.15)"
+                  : "rgba(239, 68, 68, 0.15)",
+                color: stat.trendUp ? "var(--success)" : "var(--danger)",
+              }}
+            >
+              {stat.trendUp ? (
+                <ArrowUpRight className="h-3 w-3" />
+              ) : (
+                <ArrowDownRight className="h-3 w-3" />
+              )}
+              {stat.trend}
+            </div>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredItems.map((item) => (
-              <InboxItem
-                key={item.id}
-                id={item.id}
-                icon={item.icon}
-                iconBg={item.iconBg}
-                iconColor={item.iconColor}
-                title={item.title}
-                subtitle={item.subtitle}
-                badge={item.badge}
-                badgeColor={item.badgeColor}
-                timeText={item.timeText}
-                timeUrgent={item.timeUrgent}
-                actionLabel={item.actionLabel}
-                onAction={() => handleCardClick(item)}
-                onCardClick={() => handleCardClick(item)}
-              />
-            ))}
-          </div>
-        )}
+        ))}
+      </div>
+
+      {/* ============================================================ */}
+      {/* Processes Grid                                                */}
+      {/* ============================================================ */}
+      <section>
+        <div className="mb-5 flex items-center justify-between">
+          <h2
+            className="text-lg font-bold"
+            style={{
+              fontFamily: "'Outfit', sans-serif",
+              letterSpacing: "-0.3px",
+              color: "var(--text-primary)",
+            }}
+          >
+            Procesos
+          </h2>
+          <span
+            className="flex cursor-pointer items-center gap-1.5 text-[13px] transition-all hover:gap-2.5"
+            style={{ color: "var(--primary-color)" }}
+          >
+            Ver todos <ArrowRight className="h-3.5 w-3.5" />
+          </span>
+        </div>
+
+        <div className="process-grid-3 grid grid-cols-3 gap-5">
+          {PROCESS_CARDS.map((proc, i) => (
+            <Link
+              key={proc.href}
+              href={proc.href}
+              className="glass-card glass-card-interactive animate-fade-in-up group relative cursor-pointer p-6"
+              style={{ animationDelay: `${(i + 2) * 0.1}s` }}
+            >
+              <div
+                className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-[28px] transition-transform duration-300 group-hover:rotate-[5deg] group-hover:scale-110"
+                style={{ background: proc.iconBg }}
+              >
+                {proc.emoji}
+              </div>
+
+              <h3
+                className="mb-2 text-base font-bold"
+                style={{
+                  fontFamily: "'Outfit', sans-serif",
+                  color: "var(--text-primary)",
+                }}
+              >
+                {proc.title}
+              </h3>
+              <p
+                className="mb-4 text-[13px] leading-relaxed"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {proc.desc}
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                {proc.roles.map((role) => (
+                  <span
+                    key={role}
+                    className="rounded-lg px-2.5 py-1 text-[11px] font-semibold"
+                    style={{
+                      background: "var(--bg-tertiary)",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    {role}
+                  </span>
+                ))}
+              </div>
+
+              {/* Arrow */}
+              <div
+                className="absolute bottom-6 right-6 flex h-8 w-8 items-center justify-center rounded-[10px] transition-all duration-300 group-hover:translate-x-1"
+                style={{
+                  background: "var(--bg-tertiary)",
+                  color: "var(--text-muted)",
+                }}
+              >
+                <ArrowRight className="h-4 w-4 transition-colors group-hover:text-white" />
+              </div>
+            </Link>
+          ))}
+        </div>
       </section>
 
       {/* ============================================================ */}
-      {/* BOTTOM: Agent Activity (collapsible)                          */}
+      {/* Two-column: Tasks + Deadlines                                 */}
       {/* ============================================================ */}
-      {agentLogEntries.length > 0 && (
-        <section className="rounded-xl border border-gray-200 bg-white">
-          <button
-            type="button"
-            onClick={() => setAgentSectionOpen((prev) => !prev)}
-            className="flex w-full items-center justify-between px-5 py-4 text-left"
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* --- Urgent / Today tasks --- */}
+        <div
+          className="glass-card animate-fade-in-up overflow-hidden"
+          style={{ animationDelay: "0.5s" }}
+        >
+          <div
+            className="flex items-center gap-3 px-6 py-5"
+            style={{ borderBottom: "1px solid var(--glass-border)" }}
           >
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-100">
-                <Bot className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <h2
-                  className="font-semibold text-gray-900"
-                  style={{ fontSize: "16px" }}
-                >
-                  Actividad de Agentes
-                </h2>
-                {!agentSectionOpen && (
-                  <p
-                    className="text-gray-400 mt-0.5"
-                    style={{ fontSize: "13px" }}
-                  >
-                    {agentLogEntries.length} acciones recientes
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-[10px] text-lg"
+              style={{ background: "rgba(245, 158, 11, 0.2)" }}
+            >
+              <Clock className="h-5 w-5" style={{ color: "#f59e0b" }} />
+            </div>
+            <h3
+              className="text-base font-bold"
+              style={{ fontFamily: "'Outfit', sans-serif", color: "var(--text-primary)" }}
+            >
+              Tareas Pendientes
+            </h3>
+          </div>
+
+          <div className="max-h-80 overflow-y-auto p-3">
+            {[...data.urgent, ...data.today].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() =>
+                  handleTaskClick({
+                    id: item.id,
+                    type: item.type,
+                    title: item.title,
+                    subtitle: item.subtitle,
+                    amount: "amount" in item ? (item as { amount?: string }).amount : undefined,
+                  })
+                }
+                className="mb-1 flex w-full items-center gap-3.5 rounded-[14px] px-4 py-3.5 text-left transition-all duration-200"
+                style={{ color: "var(--text-primary)" }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = "var(--bg-card-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = "";
+                }}
+              >
+                <div
+                  className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                  style={{
+                    background:
+                      "urgencyText" in item
+                        ? "var(--danger)"
+                        : "var(--warning)",
+                    boxShadow:
+                      "urgencyText" in item
+                        ? "0 0 10px var(--danger)"
+                        : "0 0 10px var(--warning)",
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">
+                    {item.title}
                   </p>
-                )}
+                  <p
+                    className="flex items-center gap-2 text-xs"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {item.subtitle && (
+                      <span style={{ color: "var(--text-secondary)" }}>
+                        {item.subtitle}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <span
+                  className="shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold"
+                  style={{
+                    background:
+                      "urgencyText" in item
+                        ? "rgba(239, 68, 68, 0.15)"
+                        : "rgba(245, 158, 11, 0.15)",
+                    color:
+                      "urgencyText" in item
+                        ? "var(--danger)"
+                        : "var(--warning)",
+                  }}
+                >
+                  {"urgencyText" in item ? "Urgente" : "Hoy"}
+                </span>
+              </button>
+            ))}
+
+            {data.urgent.length === 0 && data.today.length === 0 && (
+              <div className="py-8 text-center" style={{ color: "var(--text-muted)" }}>
+                <p className="text-4xl mb-3 opacity-50">{"\u2705"}</p>
+                <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+                  Sin tareas pendientes
+                </p>
               </div>
-            </div>
-            {agentSectionOpen ? (
-              <ChevronUp className="h-5 w-5 text-gray-400" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-gray-400" />
             )}
-          </button>
+          </div>
+        </div>
 
-          {agentSectionOpen && (
-            <div className="border-t border-gray-100 px-5 py-4">
-              <AgentLog entries={agentLogEntries} maxVisible={5} />
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ============================================================ */}
-      {/* COMPLETED section                                             */}
-      {/* ============================================================ */}
-      {data.completed.length > 0 && (
-        <section className="rounded-xl border border-gray-200 bg-white">
-          <button
-            type="button"
-            onClick={() => setCompletedOpen((prev) => !prev)}
-            className="flex w-full items-center justify-between px-5 py-4 text-left"
+        {/* --- In Progress --- */}
+        <div
+          className="glass-card animate-fade-in-up overflow-hidden"
+          style={{ animationDelay: "0.6s" }}
+        >
+          <div
+            className="flex items-center gap-3 px-6 py-5"
+            style={{ borderBottom: "1px solid var(--glass-border)" }}
           >
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <h2
-                  className="font-semibold text-gray-900"
-                  style={{ fontSize: "16px" }}
-                >
-                  Completado hoy
-                </h2>
-                {!completedOpen && (
-                  <p
-                    className="text-gray-400 mt-0.5"
-                    style={{ fontSize: "13px" }}
-                  >
-                    {data.completed.length} tareas completadas
-                  </p>
-                )}
-              </div>
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-[10px] text-lg"
+              style={{ background: "rgba(99, 102, 241, 0.2)" }}
+            >
+              <TrendingUp className="h-5 w-5" style={{ color: "#6366f1" }} />
             </div>
-            {completedOpen ? (
-              <ChevronUp className="h-5 w-5 text-gray-400" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-gray-400" />
-            )}
-          </button>
+            <h3
+              className="text-base font-bold"
+              style={{ fontFamily: "'Outfit', sans-serif", color: "var(--text-primary)" }}
+            >
+              En Progreso
+            </h3>
+          </div>
 
-          {completedOpen && (
-            <div className="border-t border-gray-100 px-5 py-4">
-              <div className="space-y-2">
-                {data.completed.map((item) => (
+          <div className="max-h-80 overflow-y-auto p-3">
+            {data.inProgress.map((item) => {
+              const progress = getProcessProgress(item.processId, item.status);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() =>
+                    handleTaskClick({
+                      id: item.id,
+                      type: item.type,
+                      title: item.title,
+                      subtitle: item.subtitle,
+                      processId: item.processId,
+                      status: item.status,
+                    })
+                  }
+                  className="mb-1 flex w-full items-center gap-3.5 rounded-[14px] px-4 py-3.5 text-left transition-all duration-200"
+                  style={{ color: "var(--text-primary)" }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = "var(--bg-card-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = "";
+                  }}
+                >
                   <div
-                    key={item.id}
-                    className="flex items-center gap-3 rounded-lg bg-green-50/50 border border-green-100 px-4 py-3"
-                  >
-                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p
-                        className="truncate text-gray-700 font-medium"
-                        style={{ fontSize: "14px" }}
-                      >
-                        {item.title}
-                      </p>
-                      {item.subtitle && (
-                        <p
-                          className="text-gray-400 truncate"
-                          style={{ fontSize: "13px" }}
-                        >
-                          {item.subtitle}
-                        </p>
-                      )}
-                    </div>
+                    className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                    style={{
+                      background: "var(--primary-color)",
+                      boxShadow: "0 0 10px var(--primary-color)",
+                    }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">
+                      {item.title}
+                    </p>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      {progress.stepLabel} &middot; {progress.percentage}%
+                    </p>
                   </div>
-                ))}
+                  <span
+                    className="shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold"
+                    style={{
+                      background: "var(--bg-tertiary)",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    {progress.percentage}%
+                  </span>
+                </button>
+              );
+            })}
+
+            {data.inProgress.length === 0 && (
+              <div className="py-8 text-center" style={{ color: "var(--text-muted)" }}>
+                <p className="text-4xl mb-3 opacity-50">{"\uD83D\uDCAD"}</p>
+                <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+                  Sin procesos activos
+                </p>
               </div>
-            </div>
-          )}
-        </section>
-      )}
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* ============================================================ */}
       {/* Drawer                                                        */}

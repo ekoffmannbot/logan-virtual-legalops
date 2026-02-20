@@ -45,7 +45,7 @@ export default function AIAssistantPage() {
       id: "welcome",
       role: "assistant",
       content:
-        "Hola, soy el asistente de IA de Logan & Logan. Puedo ayudarte a redactar emails, crear propuestas, resumir casos y más. Selecciona un caso para dar contexto o usa los botones rápidos para comenzar.",
+        "Hola, soy el asistente de IA de Logan & Logan. Puedo ayudarte a redactar emails, crear propuestas, resumir casos y m\u00e1s. Selecciona un caso para dar contexto o usa los botones r\u00e1pidos para comenzar.",
       timestamp: new Date(),
     },
   ]);
@@ -85,7 +85,7 @@ export default function AIAssistantPage() {
         id: `err-${Date.now()}`,
         role: "assistant",
         content:
-          "Lo siento, ocurrió un error al procesar tu solicitud. Por favor intenta de nuevo.",
+          "Lo siento, ocurri\u00f3 un error al procesar tu solicitud. Por favor intenta de nuevo.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -160,7 +160,7 @@ export default function AIAssistantPage() {
         id: `err-${Date.now()}`,
         role: "assistant",
         content:
-          "No pude resumir el caso. Asegúrate de seleccionar un caso primero.",
+          "No pude resumir el caso. Aseg\u00farate de seleccionar un caso primero.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -267,13 +267,19 @@ export default function AIAssistantPage() {
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 pb-4">
+      <div
+        className="flex items-center justify-between pb-4"
+        style={{ borderBottom: "1px solid var(--glass-border)" }}
+      >
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-purple-500" />
+          <h1
+            className="text-2xl font-bold flex items-center gap-2"
+            style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+          >
+            <Sparkles className="h-6 w-6" style={{ color: "var(--primary-color)" }} />
             Asistente IA
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
             Asistente inteligente para tareas legales
           </p>
         </div>
@@ -281,11 +287,16 @@ export default function AIAssistantPage() {
         {/* Matter Selector */}
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
             <select
               value={selectedMatterId}
               onChange={(e) => setSelectedMatterId(e.target.value)}
-              className="appearance-none rounded-lg border border-gray-300 py-2 pl-10 pr-10 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 min-w-[250px]"
+              className="appearance-none rounded-lg py-2 pl-10 pr-10 text-sm outline-none min-w-[250px]"
+              style={{
+                background: "var(--bg-tertiary)",
+                border: "1px solid var(--glass-border)",
+                color: "var(--text-primary)",
+              }}
             >
               <option value="">Sin caso seleccionado</option>
               {matters.map((matter) => (
@@ -294,7 +305,7 @@ export default function AIAssistantPage() {
                 </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }} />
           </div>
           <button
             onClick={() => {
@@ -303,13 +314,19 @@ export default function AIAssistantPage() {
                   id: "welcome",
                   role: "assistant",
                   content:
-                    "Conversación reiniciada. Estoy listo para ayudarte.",
+                    "Conversaci\u00f3n reiniciada. Estoy listo para ayudarte.",
                   timestamp: new Date(),
                 },
               ]);
             }}
-            className="rounded-lg border border-gray-300 p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
-            title="Reiniciar conversación"
+            className="rounded-lg p-2 transition-colors"
+            style={{
+              border: "1px solid var(--glass-border)",
+              color: "var(--text-muted)",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-tertiary)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
+            title="Reiniciar conversaci\u00f3n"
           >
             <RotateCcw className="h-4 w-4" />
           </button>
@@ -318,21 +335,32 @@ export default function AIAssistantPage() {
 
       {/* Context indicator */}
       {selectedMatter && (
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-purple-50 px-4 py-1.5 text-sm text-purple-700 self-start">
+        <div
+          className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm self-start"
+          style={{ background: "rgba(99,102,241,0.15)", color: "var(--primary-color)" }}
+        >
           <Briefcase className="h-3.5 w-3.5" />
           Contexto: {selectedMatter.title} ({selectedMatter.client_name})
         </div>
       )}
 
       {/* Quick Action Buttons */}
-      <div className="flex items-center gap-3 py-4 border-b border-gray-100">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-          Acciones rápidas:
+      <div
+        className="flex items-center gap-3 py-4"
+        style={{ borderBottom: "1px solid var(--glass-border)" }}
+      >
+        <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+          Acciones r\u00e1pidas:
         </span>
         <button
           onClick={() => handleQuickAction("draft_email")}
           disabled={isLoading}
-          className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-purple-50 px-4 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-50 transition-colors"
+          style={{
+            border: "1px solid rgba(99,102,241,0.3)",
+            background: "rgba(99,102,241,0.15)",
+            color: "var(--primary-color)",
+          }}
         >
           <Mail className="h-3.5 w-3.5" />
           Borrador Email
@@ -340,7 +368,12 @@ export default function AIAssistantPage() {
         <button
           onClick={() => handleQuickAction("draft_proposal")}
           disabled={isLoading}
-          className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-50 transition-colors"
+          style={{
+            border: "1px solid rgba(99,102,241,0.3)",
+            background: "rgba(99,102,241,0.15)",
+            color: "var(--primary-color)",
+          }}
         >
           <FileText className="h-3.5 w-3.5" />
           Borrador Propuesta
@@ -348,7 +381,12 @@ export default function AIAssistantPage() {
         <button
           onClick={() => handleQuickAction("summarize")}
           disabled={isLoading}
-          className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-4 py-1.5 text-sm font-medium text-green-700 hover:bg-green-100 disabled:opacity-50 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-50 transition-colors"
+          style={{
+            border: "1px solid rgba(34,197,94,0.3)",
+            background: "rgba(34,197,94,0.15)",
+            color: "var(--success)",
+          }}
         >
           <BookOpen className="h-3.5 w-3.5" />
           Resumir Caso
@@ -367,8 +405,11 @@ export default function AIAssistantPage() {
           >
             {message.role === "assistant" && (
               <div className="flex-shrink-0 mt-1">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100">
-                  <Bot className="h-4 w-4 text-purple-600" />
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-full"
+                  style={{ background: "rgba(99,102,241,0.2)" }}
+                >
+                  <Bot className="h-4 w-4" style={{ color: "var(--primary-color)" }} />
                 </div>
               </div>
             )}
@@ -376,13 +417,18 @@ export default function AIAssistantPage() {
             <div
               className={cn(
                 "group relative max-w-2xl rounded-2xl px-4 py-3",
-                message.role === "user"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-800"
               )}
+              style={{
+                background: message.role === "user" ? "var(--primary-color)" : "var(--bg-card)",
+                color: message.role === "user" ? "#ffffff" : "var(--text-primary)",
+                border: message.role === "assistant" ? "1px solid var(--glass-border)" : "none",
+              }}
             >
               {message.action && message.role === "assistant" && (
-                <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-gray-600">
+                <div
+                  className="mb-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                  style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)" }}
+                >
                   {message.action === "draft_email" && (
                     <>
                       <Mail className="h-3 w-3" />
@@ -409,12 +455,10 @@ export default function AIAssistantPage() {
               </div>
 
               <div
-                className={cn(
-                  "mt-1 flex items-center gap-2 text-xs",
-                  message.role === "user"
-                    ? "text-blue-200"
-                    : "text-gray-400"
-                )}
+                className="mt-1 flex items-center gap-2 text-xs"
+                style={{
+                  color: message.role === "user" ? "rgba(255,255,255,0.6)" : "var(--text-muted)",
+                }}
               >
                 <span>
                   {message.timestamp.toLocaleTimeString("es-CL", {
@@ -431,11 +475,16 @@ export default function AIAssistantPage() {
                     onClick={() =>
                       handleCopyMessage(message.id, message.content)
                     }
-                    className="absolute -right-2 top-2 rounded-lg bg-white border border-gray-200 p-1.5 text-gray-400 opacity-0 shadow-sm group-hover:opacity-100 hover:text-gray-600 transition-all"
+                    className="absolute -right-2 top-2 rounded-lg p-1.5 opacity-0 shadow-sm group-hover:opacity-100 transition-all"
+                    style={{
+                      background: "var(--bg-secondary)",
+                      border: "1px solid var(--glass-border)",
+                      color: "var(--text-muted)",
+                    }}
                     title="Copiar mensaje"
                   >
                     {copiedMessageId === message.id ? (
-                      <Check className="h-3.5 w-3.5 text-green-500" />
+                      <Check className="h-3.5 w-3.5" style={{ color: "var(--success)" }} />
                     ) : (
                       <Copy className="h-3.5 w-3.5" />
                     )}
@@ -445,8 +494,11 @@ export default function AIAssistantPage() {
 
             {message.role === "user" && (
               <div className="flex-shrink-0 mt-1">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-                  <User className="h-4 w-4 text-blue-600" />
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-full"
+                  style={{ background: "rgba(99,102,241,0.2)" }}
+                >
+                  <User className="h-4 w-4" style={{ color: "var(--primary-color)" }} />
                 </div>
               </div>
             )}
@@ -457,13 +509,19 @@ export default function AIAssistantPage() {
         {isLoading && (
           <div className="flex gap-3">
             <div className="flex-shrink-0 mt-1">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100">
-                <Bot className="h-4 w-4 text-purple-600" />
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-full"
+                style={{ background: "rgba(99,102,241,0.2)" }}
+              >
+                <Bot className="h-4 w-4" style={{ color: "var(--primary-color)" }} />
               </div>
             </div>
-            <div className="rounded-2xl bg-gray-100 px-4 py-3">
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
+            <div
+              className="rounded-2xl px-4 py-3"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)" }}
+            >
+              <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
+                <Loader2 className="h-4 w-4 animate-spin" style={{ color: "var(--primary-color)" }} />
                 Pensando...
               </div>
             </div>
@@ -474,7 +532,7 @@ export default function AIAssistantPage() {
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-gray-200 pt-4">
+      <div className="pt-4" style={{ borderTop: "1px solid var(--glass-border)" }}>
         <div className="flex items-end gap-3">
           <div className="relative flex-1">
             <textarea
@@ -484,10 +542,13 @@ export default function AIAssistantPage() {
               onKeyDown={handleKeyDown}
               placeholder="Escribe tu mensaje o pregunta..."
               rows={1}
-              className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 pr-12 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              className="w-full resize-none rounded-xl px-4 py-3 pr-12 text-sm outline-none"
               style={{
                 minHeight: "48px",
                 maxHeight: "120px",
+                background: "var(--bg-tertiary)",
+                border: "1px solid var(--glass-border)",
+                color: "var(--text-primary)",
               }}
               onInput={(e) => {
                 const target = e.target as HTMLTextAreaElement;
@@ -499,12 +560,13 @@ export default function AIAssistantPage() {
           <button
             onClick={handleSendMessage}
             disabled={isLoading || !inputValue.trim()}
-            className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-purple-600 text-white shadow-sm hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            style={{ background: "var(--primary-color)" }}
           >
             <Send className="h-5 w-5" />
           </button>
         </div>
-        <p className="mt-2 text-xs text-gray-400 text-center">
+        <p className="mt-2 text-xs text-center" style={{ color: "var(--text-muted)" }}>
           El asistente de IA puede cometer errores. Siempre revise el contenido
           generado antes de utilizarlo.
         </p>

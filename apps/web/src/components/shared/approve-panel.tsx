@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Bot, Check, Pencil, X } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
-/* APPROVE PANEL – Human-in-the-loop para aprobar trabajo de agentes   */
+/* APPROVE PANEL – Dark glassmorphism theme                            */
 /* ------------------------------------------------------------------ */
 
 interface ApprovePanelProps {
@@ -18,33 +18,6 @@ interface ApprovePanelProps {
   status?: "pending" | "approved" | "rejected" | "modified";
 }
 
-const STATUS_CONFIG = {
-  approved: {
-    bg: "bg-green-50",
-    border: "border-green-200",
-    iconBg: "bg-green-100",
-    iconColor: "text-green-600",
-    label: "Aprobado",
-    icon: Check,
-  },
-  rejected: {
-    bg: "bg-red-50",
-    border: "border-red-200",
-    iconBg: "bg-red-100",
-    iconColor: "text-red-600",
-    label: "Rechazado",
-    icon: X,
-  },
-  modified: {
-    bg: "bg-yellow-50",
-    border: "border-yellow-200",
-    iconBg: "bg-yellow-100",
-    iconColor: "text-yellow-600",
-    label: "Modificado",
-    icon: Pencil,
-  },
-} as const;
-
 export function ApprovePanel({
   agentName,
   agentAction,
@@ -56,71 +29,76 @@ export function ApprovePanel({
   status = "pending",
 }: ApprovePanelProps) {
   const resolved = status !== "pending";
-  const config = resolved ? STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] : null;
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ---- Barra de información del agente ---- */}
+      {/* Agent info bar */}
       <div
-        className={cn(
-          "flex items-center gap-3 rounded-lg border-l-4 px-4 py-3",
-          "bg-blue-50 border-l-blue-600",
-        )}
+        className="flex items-center gap-3 rounded-xl border-l-4 px-4 py-3"
+        style={{
+          background: "rgba(99, 102, 241, 0.1)",
+          borderLeftColor: "var(--primary-color)",
+        }}
       >
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 flex-shrink-0">
-          <Bot className="h-5 w-5 text-blue-600" />
+        <div
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
+          style={{ background: "rgba(99, 102, 241, 0.2)" }}
+        >
+          <Bot className="h-5 w-5" style={{ color: "var(--primary-color)" }} />
         </div>
-
-        <div className="flex-1 min-w-0">
-          <p className="text-[14px] font-semibold text-gray-800 leading-tight">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
             {agentName}
           </p>
-          <p className="text-[13px] text-gray-600 leading-tight mt-0.5">
+          <p className="mt-0.5 text-[13px]" style={{ color: "var(--text-secondary)" }}>
             {agentAction}
           </p>
         </div>
-
         {timestamp && (
-          <span className="text-[13px] text-gray-400 flex-shrink-0">
+          <span className="flex-shrink-0 text-[13px]" style={{ color: "var(--text-muted)" }}>
             {timestamp}
           </span>
         )}
       </div>
 
-      {/* ---- Área de contenido del agente ---- */}
+      {/* Content area */}
       <div
-        className={cn(
-          "min-h-[120px] rounded-xl border border-gray-200 bg-white p-6",
-          "text-[14px] text-gray-700 leading-relaxed whitespace-pre-wrap",
-        )}
+        className="min-h-[120px] whitespace-pre-wrap rounded-xl p-6 text-sm leading-relaxed"
+        style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--glass-border)",
+          color: "var(--text-secondary)",
+        }}
       >
         {content}
       </div>
 
-      {/* ---- Barra de acciones / Estado resuelto ---- */}
-      {resolved && config ? (
+      {/* Action buttons */}
+      {resolved ? (
         <div
-          className={cn(
-            "flex items-center justify-center gap-2 rounded-xl border py-3 px-4",
-            config.bg,
-            config.border,
-          )}
+          className="flex items-center justify-center gap-2 rounded-xl py-3 px-4"
+          style={{
+            background:
+              status === "approved"
+                ? "rgba(34, 197, 94, 0.15)"
+                : status === "rejected"
+                  ? "rgba(239, 68, 68, 0.15)"
+                  : "rgba(245, 158, 11, 0.15)",
+            border: "1px solid var(--glass-border)",
+          }}
         >
-          <div
-            className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full",
-              config.iconBg,
-            )}
-          >
-            <config.icon className={cn("h-4 w-4", config.iconColor)} />
-          </div>
           <span
-            className={cn(
-              "text-[15px] font-semibold",
-              config.iconColor,
-            )}
+            className="text-[15px] font-semibold"
+            style={{
+              color:
+                status === "approved"
+                  ? "var(--success)"
+                  : status === "rejected"
+                    ? "var(--danger)"
+                    : "var(--warning)",
+            }}
           >
-            {config.label}
+            {status === "approved" ? "Aprobado" : status === "rejected" ? "Rechazado" : "Modificado"}
           </span>
         </div>
       ) : (
@@ -128,13 +106,16 @@ export function ApprovePanel({
           <button
             type="button"
             onClick={onApprove}
-            className={cn(
-              "flex-1 inline-flex items-center justify-center gap-2",
-              "h-12 rounded-xl bg-green-600 text-white",
-              "text-[15px] font-medium",
-              "hover:bg-green-700 active:bg-green-800 transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2",
-            )}
+            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl text-[15px] font-semibold text-white transition-all duration-200"
+            style={{ background: "var(--success)" }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+              (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 20px rgba(34, 197, 94, 0.4)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = "";
+              (e.currentTarget as HTMLElement).style.boxShadow = "";
+            }}
           >
             <Check className="h-5 w-5" />
             Aprobar
@@ -143,13 +124,16 @@ export function ApprovePanel({
           <button
             type="button"
             onClick={onModify}
-            className={cn(
-              "flex-1 inline-flex items-center justify-center gap-2",
-              "h-12 rounded-xl bg-yellow-500 text-white",
-              "text-[15px] font-medium",
-              "hover:bg-yellow-600 active:bg-yellow-700 transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:ring-offset-2",
-            )}
+            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl text-[15px] font-semibold text-white transition-all duration-200"
+            style={{ background: "var(--warning)" }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+              (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 20px rgba(245, 158, 11, 0.4)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = "";
+              (e.currentTarget as HTMLElement).style.boxShadow = "";
+            }}
           >
             <Pencil className="h-5 w-5" />
             Modificar
@@ -158,13 +142,18 @@ export function ApprovePanel({
           <button
             type="button"
             onClick={onReject}
-            className={cn(
-              "flex-1 inline-flex items-center justify-center gap-2",
-              "h-12 rounded-xl bg-red-500 text-white",
-              "text-[15px] font-medium",
-              "hover:bg-red-600 active:bg-red-700 transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2",
-            )}
+            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl text-[15px] font-semibold transition-all duration-200"
+            style={{
+              background: "transparent",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              color: "var(--danger)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "rgba(239, 68, 68, 0.1)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+            }}
           >
             <X className="h-5 w-5" />
             Rechazar

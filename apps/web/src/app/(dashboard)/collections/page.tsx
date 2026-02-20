@@ -210,7 +210,7 @@ export default function CollectionsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--primary-color)" }} />
       </div>
     );
   }
@@ -219,8 +219,8 @@ export default function CollectionsPage() {
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-        <AlertTriangle className="h-10 w-10 text-red-500" />
-        <p className="font-medium text-gray-800" style={{ fontSize: "16px" }}>
+        <AlertTriangle className="h-10 w-10" style={{ color: "var(--danger)" }} />
+        <p className="font-medium" style={{ fontSize: "16px", color: "var(--text-primary)" }}>
           Error al cargar facturas
         </p>
       </div>
@@ -232,15 +232,21 @@ export default function CollectionsPage() {
     <div className="space-y-5">
       {/* ============ HEADER ============ */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-          <DollarSign className="h-5 w-5 text-green-600" />
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-full"
+          style={{ background: "rgba(34,197,94,0.2)" }}
+        >
+          <DollarSign className="h-5 w-5" style={{ color: "var(--success)" }} />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900" style={{ fontSize: "24px" }}>
+        <h1
+          className="text-2xl font-bold"
+          style={{ fontSize: "24px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+        >
           Cobranza
         </h1>
         <span
-          className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-700 px-2.5 py-0.5 font-semibold"
-          style={{ fontSize: "13px" }}
+          className="inline-flex items-center justify-center rounded-full px-2.5 py-0.5 font-semibold"
+          style={{ fontSize: "13px", background: "var(--bg-tertiary)", color: "var(--text-muted)" }}
         >
           {invoices.length}
         </span>
@@ -255,13 +261,12 @@ export default function CollectionsPage() {
               key={chip.key}
               type="button"
               onClick={() => setFilter(chip.key)}
-              className={[
-                "rounded-full px-4 py-1.5 font-medium transition-colors",
+              className="rounded-full px-4 py-1.5 font-medium transition-colors"
+              style={
                 active
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200",
-              ].join(" ")}
-              style={{ fontSize: "14px" }}
+                  ? { fontSize: "14px", background: "var(--primary-color)", color: "#ffffff" }
+                  : { fontSize: "14px", background: "var(--bg-tertiary)", color: "var(--text-muted)" }
+              }
             >
               {chip.label}
             </button>
@@ -272,13 +277,16 @@ export default function CollectionsPage() {
       {/* ============ LISTA / EMPTY ============ */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
-            <DollarSign className="h-8 w-8 text-gray-400" />
+          <div
+            className="flex h-16 w-16 items-center justify-center rounded-full mb-4"
+            style={{ background: "var(--bg-tertiary)" }}
+          >
+            <DollarSign className="h-8 w-8" style={{ color: "var(--text-muted)" }} />
           </div>
-          <p className="font-medium text-gray-700" style={{ fontSize: "16px" }}>
+          <p className="font-medium" style={{ fontSize: "16px", color: "var(--text-primary)" }}>
             No hay facturas en esta categoria
           </p>
-          <p className="text-gray-500 mt-1" style={{ fontSize: "14px" }}>
+          <p className="mt-1" style={{ fontSize: "14px", color: "var(--text-muted)" }}>
             Seleccione otro filtro o espere nuevas facturas.
           </p>
         </div>
@@ -341,18 +349,21 @@ function InvoiceDetail({
     <div className="space-y-6">
       {/* ---- Progreso ---- */}
       <div>
-        <p className="font-semibold text-gray-700 mb-1" style={{ fontSize: "14px" }}>
+        <p className="font-semibold mb-1" style={{ fontSize: "14px", color: "var(--text-primary)" }}>
           Progreso de cobranza
         </p>
-        <p className="text-gray-500 mb-4" style={{ fontSize: "13px" }}>
+        <p className="mb-4" style={{ fontSize: "13px", color: "var(--text-muted)" }}>
           Paso {currentIndex + 1} de {steps.length}: {progress.stepLabel}
         </p>
         <PizzaTracker steps={steps} currentStepIndex={currentIndex} />
       </div>
 
       {/* ---- Datos de la factura ---- */}
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-        <h3 className="font-semibold text-gray-800" style={{ fontSize: "15px" }}>
+      <div
+        className="rounded-xl p-4 space-y-3"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+      >
+        <h3 className="font-semibold" style={{ fontSize: "15px", color: "var(--text-primary)" }}>
           Datos de la Factura
         </h3>
         <div className="grid grid-cols-2 gap-3">
@@ -373,19 +384,28 @@ function InvoiceDetail({
 
       {/* ---- Historial de pagos ---- */}
       {invoice.amount_paid > 0 && (
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-          <h3 className="font-semibold text-gray-800" style={{ fontSize: "15px" }}>
+        <div
+          className="rounded-xl p-4 space-y-3"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+        >
+          <h3 className="font-semibold" style={{ fontSize: "15px", color: "var(--text-primary)" }}>
             Historial de Pagos
           </h3>
-          <div className="flex items-center gap-3 rounded-lg bg-white border border-gray-100 p-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
-              <CreditCard className="h-4 w-4 text-green-600" />
+          <div
+            className="flex items-center gap-3 rounded-lg p-3"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)" }}
+          >
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-full"
+              style={{ background: "rgba(34,197,94,0.2)" }}
+            >
+              <CreditCard className="h-4 w-4" style={{ color: "var(--success)" }} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-900" style={{ fontSize: "14px" }}>
+              <p className="font-medium" style={{ fontSize: "14px", color: "var(--text-primary)" }}>
                 Abono registrado
               </p>
-              <p className="text-gray-500" style={{ fontSize: "13px" }}>
+              <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
                 {formatCLP(invoice.amount_paid)}
               </p>
             </div>
@@ -412,17 +432,17 @@ function Detail({
   return (
     <div>
       <p
-        className="font-medium text-gray-500 uppercase tracking-wide"
-        style={{ fontSize: "13px" }}
+        className="font-medium uppercase tracking-wide"
+        style={{ fontSize: "13px", color: "var(--text-muted)" }}
       >
         {label}
       </p>
       <p
-        className={[
-          "mt-0.5",
-          highlight ? "font-semibold text-red-700" : "text-gray-900",
-        ].join(" ")}
-        style={{ fontSize: "14px" }}
+        className={["mt-0.5", highlight ? "font-semibold" : ""].join(" ")}
+        style={{
+          fontSize: "14px",
+          color: highlight ? "var(--danger)" : "var(--text-primary)",
+        }}
       >
         {value}
       </p>

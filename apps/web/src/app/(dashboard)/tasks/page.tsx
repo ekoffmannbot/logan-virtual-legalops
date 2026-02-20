@@ -47,9 +47,9 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   legal: "Legal",
   administrative: "Administrativo",
   follow_up: "Seguimiento",
-  review: "Revisión",
+  review: "Revisi\u00f3n",
   deadline: "Plazo",
-  billing: "Facturación",
+  billing: "Facturaci\u00f3n",
   contact: "Contacto",
 };
 
@@ -105,12 +105,12 @@ export default function TasksPage() {
   const columns = [
     {
       key: "title",
-      label: "Título",
+      label: "T\u00edtulo",
       render: (task: Task) => (
         <div className="max-w-xs">
-          <p className="font-medium text-gray-900 truncate">{task.title}</p>
+          <p className="font-medium truncate" style={{ color: "var(--text-primary)" }}>{task.title}</p>
           {task.description && (
-            <p className="text-xs text-gray-500 truncate mt-0.5">
+            <p className="text-xs truncate mt-0.5" style={{ color: "var(--text-muted)" }}>
               {task.description}
             </p>
           )}
@@ -121,7 +121,10 @@ export default function TasksPage() {
       key: "type",
       label: "Tipo",
       render: (task: Task) => (
-        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+        <span
+          className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+          style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+        >
           <Tag className="h-3 w-3" />
           {TASK_TYPE_LABELS[task.type] || task.type}
         </span>
@@ -143,13 +146,25 @@ export default function TasksPage() {
       label: "Prioridad",
       render: (task: Task) => (
         <span
-          className={cn(
-            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-            task.priority === "urgent" && "bg-red-100 text-red-700",
-            task.priority === "high" && "bg-orange-100 text-orange-700",
-            task.priority === "medium" && "bg-yellow-100 text-yellow-700",
-            task.priority === "low" && "bg-gray-100 text-gray-600"
-          )}
+          className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+          style={{
+            background:
+              task.priority === "urgent"
+                ? "rgba(239,68,68,0.2)"
+                : task.priority === "high"
+                ? "rgba(249,115,22,0.2)"
+                : task.priority === "medium"
+                ? "rgba(245,158,11,0.2)"
+                : "var(--bg-tertiary)",
+            color:
+              task.priority === "urgent"
+                ? "var(--danger)"
+                : task.priority === "high"
+                ? "#f97316"
+                : task.priority === "medium"
+                ? "var(--warning)"
+                : "var(--text-muted)",
+          }}
         >
           {PRIORITY_LABELS[task.priority] || task.priority}
         </span>
@@ -159,9 +174,9 @@ export default function TasksPage() {
       key: "assigned_to",
       label: "Asignado",
       render: (task: Task) => (
-        <span className="text-sm text-gray-700">
+        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
           {task.assigned_to_name || (
-            <span className="text-gray-400">Sin asignar</span>
+            <span style={{ color: "var(--text-muted)" }}>Sin asignar</span>
           )}
         </span>
       ),
@@ -170,17 +185,18 @@ export default function TasksPage() {
       key: "due_date",
       label: "Vence",
       render: (task: Task) => {
-        if (!task.due_date) return <span className="text-gray-400">—</span>;
+        if (!task.due_date) return <span style={{ color: "var(--text-muted)" }}>&mdash;</span>;
         const isOverdue =
           new Date(task.due_date) < new Date() &&
           task.status !== "completed" &&
           task.status !== "cancelled";
         return (
           <span
-            className={cn(
-              "text-sm",
-              isOverdue ? "text-red-600 font-medium" : "text-gray-600"
-            )}
+            className="text-sm"
+            style={{
+              color: isOverdue ? "var(--danger)" : "var(--text-muted)",
+              fontWeight: isOverdue ? 500 : 400,
+            }}
           >
             {formatDate(task.due_date)}
           </span>
@@ -192,12 +208,12 @@ export default function TasksPage() {
       label: "Entidad",
       render: (task: Task) =>
         task.entity_label ? (
-          <span className="inline-flex items-center gap-1 text-sm text-blue-600">
+          <span className="inline-flex items-center gap-1 text-sm" style={{ color: "var(--primary-color)" }}>
             <ExternalLink className="h-3.5 w-3.5" />
             {task.entity_label}
           </span>
         ) : (
-          <span className="text-gray-400">—</span>
+          <span style={{ color: "var(--text-muted)" }}>&mdash;</span>
         ),
     },
   ];
@@ -207,14 +223,22 @@ export default function TasksPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tareas</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Gestión y seguimiento de tareas
+          <h1
+            className="text-2xl font-bold"
+            style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+          >
+            Tareas
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+            Gesti\u00f3n y seguimiento de tareas
           </p>
         </div>
         <button
           onClick={() => router.push("/tasks/new")}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors"
+          style={{ background: "var(--primary-color)" }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
         >
           <Plus className="h-4 w-4" />
           Nueva Tarea
@@ -259,39 +283,45 @@ export default function TasksPage() {
       {/* View Toggle + Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         {/* View Toggle */}
-        <div className="inline-flex rounded-lg border border-gray-300 p-0.5">
+        <div
+          className="inline-flex rounded-lg p-0.5"
+          style={{ border: "1px solid var(--glass-border)" }}
+        >
           <button
             onClick={() => setViewMode("mine")}
-            className={cn(
-              "rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
-              viewMode === "mine"
-                ? "bg-blue-600 text-white"
-                : "text-gray-600 hover:text-gray-900"
-            )}
+            className="rounded-md px-4 py-1.5 text-sm font-medium transition-colors"
+            style={{
+              background: viewMode === "mine" ? "var(--primary-color)" : "transparent",
+              color: viewMode === "mine" ? "#ffffff" : "var(--text-muted)",
+            }}
           >
             Mis tareas
           </button>
           <button
             onClick={() => setViewMode("all")}
-            className={cn(
-              "rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
-              viewMode === "all"
-                ? "bg-blue-600 text-white"
-                : "text-gray-600 hover:text-gray-900"
-            )}
+            className="rounded-md px-4 py-1.5 text-sm font-medium transition-colors"
+            style={{
+              background: viewMode === "all" ? "var(--primary-color)" : "transparent",
+              color: viewMode === "all" ? "#ffffff" : "var(--text-muted)",
+            }}
           >
             Todas
           </button>
         </div>
 
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
           <input
             type="text"
             placeholder="Buscar tareas..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-lg py-2 pl-10 pr-4 text-sm outline-none"
+            style={{
+              background: "var(--bg-tertiary)",
+              border: "1px solid var(--glass-border)",
+              color: "var(--text-primary)",
+            }}
           />
         </div>
 
@@ -299,7 +329,12 @@ export default function TasksPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="appearance-none rounded-lg border border-gray-300 py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="appearance-none rounded-lg py-2 pl-3 pr-10 text-sm outline-none"
+            style={{
+              background: "var(--bg-tertiary)",
+              border: "1px solid var(--glass-border)",
+              color: "var(--text-primary)",
+            }}
           >
             <option value="all">Todos los estados</option>
             {Object.entries(TASK_STATUS_LABELS).map(([value, label]) => (
@@ -308,14 +343,19 @@ export default function TasksPage() {
               </option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }} />
         </div>
 
         <div className="relative">
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="appearance-none rounded-lg border border-gray-300 py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="appearance-none rounded-lg py-2 pl-3 pr-10 text-sm outline-none"
+            style={{
+              background: "var(--bg-tertiary)",
+              border: "1px solid var(--glass-border)",
+              color: "var(--text-primary)",
+            }}
           >
             <option value="all">Todos los tipos</option>
             {Object.entries(TASK_TYPE_LABELS).map(([value, label]) => (
@@ -324,14 +364,17 @@ export default function TasksPage() {
               </option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }} />
         </div>
       </div>
 
       {/* Table */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-4 border-t-transparent"
+            style={{ borderColor: "var(--primary-color)", borderTopColor: "transparent" }}
+          />
         </div>
       ) : filteredTasks.length === 0 ? (
         <EmptyState

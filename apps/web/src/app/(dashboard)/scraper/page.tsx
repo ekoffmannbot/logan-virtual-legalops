@@ -152,18 +152,28 @@ export default function ScraperPage() {
       <div className="space-y-6">
         {/* Progreso visual */}
         <div>
-          <p style={{ fontSize: "14px" }} className="font-semibold text-gray-700 mb-1">
+          <p style={{ fontSize: "14px", color: "var(--text-secondary)" }} className="font-semibold mb-1">
             Progreso de la busqueda
           </p>
-          <p style={{ fontSize: "13px" }} className="text-gray-500 mb-4">
+          <p style={{ fontSize: "13px", color: "var(--text-muted)" }} className="mb-4">
             Paso {currentIndex + 1} de {steps.length}: {progress.stepLabel}
           </p>
           <PizzaTracker steps={steps} currentStepIndex={currentIndex} />
         </div>
 
         {/* Detalles del trabajo */}
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-          <h3 style={{ fontSize: "15px" }} className="font-semibold text-gray-800">
+        <div
+          className="rounded-xl p-4 space-y-3"
+          style={{
+            background: "var(--bg-card)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: 16,
+          }}
+        >
+          <h3
+            style={{ fontSize: "15px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+            className="font-semibold"
+          >
             Detalles de la busqueda
           </h3>
           <div className="grid grid-cols-2 gap-3">
@@ -178,20 +188,30 @@ export default function ScraperPage() {
 
         {/* Lista de resultados stub */}
         {job.status === "completed" && job.results_count > 0 && (
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-2">
-            <h3 style={{ fontSize: "15px" }} className="font-semibold text-gray-800">
+          <div
+            className="rounded-xl p-4 space-y-2"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--glass-border)",
+              borderRadius: 16,
+            }}
+          >
+            <h3
+              style={{ fontSize: "15px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+              className="font-semibold"
+            >
               Resultados encontrados
             </h3>
             <div className="flex items-center gap-2">
               <span
-                className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 font-semibold text-green-800"
-                style={{ fontSize: "13px" }}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-semibold"
+                style={{ fontSize: "13px", background: "rgba(34,197,94,0.2)", color: "var(--success)" }}
               >
                 <CheckCircle className="h-3.5 w-3.5" />
                 {job.results_count} causas encontradas
               </span>
             </div>
-            <p style={{ fontSize: "13px" }} className="text-gray-500 mt-2">
+            <p style={{ fontSize: "13px", color: "var(--text-muted)" }} className="mt-2">
               Las causas encontradas se pueden derivar al proceso de Causas JPL para contactar a los clientes potenciales.
             </p>
           </div>
@@ -199,18 +219,25 @@ export default function ScraperPage() {
 
         {/* Estado en ejecucion */}
         {(job.status === "running" || job.status === "processing") && (
-          <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4">
+          <div
+            className="rounded-xl p-4"
+            style={{
+              background: "rgba(99,102,241,0.15)",
+              border: "2px solid rgba(99,102,241,0.3)",
+              borderRadius: 16,
+            }}
+          >
             <div className="flex items-center gap-2 mb-2">
-              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-              <p style={{ fontSize: "14px" }} className="font-semibold text-blue-700">
+              <Loader2 className="h-4 w-4 animate-spin" style={{ color: "var(--primary-color)" }} />
+              <p style={{ fontSize: "14px", color: "var(--primary-color)" }} className="font-semibold">
                 Busqueda en progreso
               </p>
             </div>
-            <p style={{ fontSize: "13px" }} className="text-blue-600">
+            <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
               El bot esta ejecutando la busqueda automatizada. Los resultados se actualizaran automaticamente.
             </p>
-            <div className="mt-3 h-1.5 w-full rounded-full bg-blue-200 overflow-hidden">
-              <div className="h-full w-2/3 rounded-full bg-blue-500 animate-pulse" />
+            <div className="mt-3 h-1.5 w-full rounded-full overflow-hidden" style={{ background: "rgba(99,102,241,0.2)" }}>
+              <div className="h-full w-2/3 rounded-full animate-pulse" style={{ background: "var(--primary-color)" }} />
             </div>
           </div>
         )}
@@ -222,14 +249,14 @@ export default function ScraperPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--primary-color)" }} />
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-2 text-red-600">
+      <div className="flex flex-col items-center justify-center py-20 gap-2" style={{ color: "var(--danger)" }}>
         <AlertCircle className="h-8 w-8" />
         <p style={{ fontSize: "14px" }}>Error al cargar busquedas</p>
       </div>
@@ -240,18 +267,24 @@ export default function ScraperPage() {
     <div className="space-y-6">
       {/* ---- HEADER ---- */}
       <div className="flex items-center gap-3">
-        <Search className="h-6 w-6 text-gray-700" />
-        <h1 className="text-2xl font-bold text-gray-900">
+        <Search className="h-6 w-6" style={{ color: "var(--text-secondary)" }} />
+        <h1
+          className="text-2xl font-bold"
+          style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+        >
           Busqueda de Causas
         </h1>
-        <span className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-gray-200 px-2 font-semibold text-gray-600" style={{ fontSize: "13px" }}>
+        <span
+          className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full px-2 font-semibold"
+          style={{ fontSize: "13px", background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+        >
           {jobs.length}
         </span>
       </div>
 
       {/* ---- LISTA ---- */}
       {jobs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-400">
+        <div className="flex flex-col items-center justify-center py-16 gap-2" style={{ color: "var(--text-muted)" }}>
           <Search className="h-10 w-10" />
           <p style={{ fontSize: "14px" }}>No hay busquedas registradas</p>
         </div>
@@ -297,12 +330,12 @@ function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p
-        className="font-medium text-gray-500 uppercase tracking-wide"
-        style={{ fontSize: "13px" }}
+        className="font-medium uppercase tracking-wide"
+        style={{ fontSize: "13px", color: "var(--text-muted)" }}
       >
         {label}
       </p>
-      <p className="text-gray-900 mt-0.5" style={{ fontSize: "14px" }}>
+      <p className="mt-0.5" style={{ fontSize: "14px", color: "var(--text-primary)" }}>
         {value}
       </p>
     </div>

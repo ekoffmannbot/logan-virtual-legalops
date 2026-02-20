@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, CheckCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /* ------------------------------------------------------------------ */
-/* SEQUENTIAL WIZARD – One-at-a-time review with slide transitions     */
+/* SEQUENTIAL WIZARD – Dark glassmorphism theme                        */
 /* ------------------------------------------------------------------ */
 
 export interface WizardItem {
@@ -41,18 +41,24 @@ function ProgressDots({
 
         return (
           <div key={i} className="relative flex items-center justify-center">
-            {/* Pulse ring on current */}
             {isCurrent && (
-              <span className="absolute h-5 w-5 rounded-full bg-blue-400/30 animate-pulse" />
+              <span
+                className="absolute h-5 w-5 rounded-full animate-pulse"
+                style={{ background: "rgba(99, 102, 241, 0.3)" }}
+              />
             )}
-
             <div
-              className={cn(
-                "relative z-10 h-3 w-3 rounded-full transition-all duration-300",
-                isDone && "bg-green-500",
-                isCurrent && "bg-blue-600 ring-2 ring-blue-300 ring-offset-2",
-                !isDone && !isCurrent && "bg-gray-300",
-              )}
+              className="relative z-10 h-3 w-3 rounded-full transition-all duration-300"
+              style={{
+                background: isDone
+                  ? "var(--success)"
+                  : isCurrent
+                    ? "var(--primary-color)"
+                    : "var(--bg-tertiary)",
+                boxShadow: isCurrent
+                  ? "0 0 0 2px rgba(99, 102, 241, 0.3), 0 0 0 4px rgba(99, 102, 241, 0.1)"
+                  : undefined,
+              }}
             >
               {isDone && (
                 <CheckCircle className="h-3 w-3 text-white" strokeWidth={3} />
@@ -81,29 +87,20 @@ export function SequentialWizard({
   const isFirst = currentIndex === 0;
   const isLast = currentIndex === total - 1;
 
-  /* ------ Slide transition state ------ */
   const [displayIndex, setDisplayIndex] = useState(currentIndex);
-  const [slideDirection, setSlideDirection] = useState<"left" | "right" | null>(
-    null,
-  );
+  const [slideDirection, setSlideDirection] = useState<"left" | "right" | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // When currentIndex changes externally, trigger animation
   useEffect(() => {
     if (currentIndex === displayIndex) return;
-
     const direction = currentIndex > displayIndex ? "left" : "right";
     setSlideDirection(direction);
     setIsAnimating(true);
 
-    // After the slide-out animation, swap content and slide in
     const timer = setTimeout(() => {
       setDisplayIndex(currentIndex);
       setSlideDirection(direction === "left" ? "right" : "left");
-
-      // Force a reflow so the "slide-in start" position applies
-      // before we transition to the final resting position
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setSlideDirection(null);
@@ -115,7 +112,6 @@ export function SequentialWizard({
     return () => clearTimeout(timer);
   }, [currentIndex, displayIndex]);
 
-  /* ------ Navigation handlers ------ */
   const goNext = useCallback(() => {
     if (isAnimating) return;
     if (isLast) {
@@ -130,7 +126,6 @@ export function SequentialWizard({
     onIndexChange(currentIndex - 1);
   }, [isAnimating, isFirst, onIndexChange, currentIndex]);
 
-  /* ------ Keyboard support ------ */
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "ArrowRight") {
@@ -141,12 +136,10 @@ export function SequentialWizard({
         goPrev();
       }
     }
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goNext, goPrev]);
 
-  /* ------ Compute slide transform ------ */
   function getSlideTransform() {
     if (slideDirection === "left") return "translateX(-100%)";
     if (slideDirection === "right") return "translateX(100%)";
@@ -158,40 +151,66 @@ export function SequentialWizard({
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* ====== TOP BAR ====== */}
-      <div className="flex-shrink-0 rounded-t-xl border border-gray-200 bg-white px-6 py-5">
-        {/* Title row */}
+      <div
+        className="flex-shrink-0 rounded-t-2xl px-6 py-5"
+        style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--glass-border)",
+          borderBottom: "none",
+        }}
+      >
         <div className="flex items-center justify-between mb-4">
           <div>
             {title && (
-              <h2 className="text-xl font-bold text-gray-900" style={{ fontSize: "clamp(16px, 2vw, 22px)" }}>
+              <h2
+                className="text-xl font-bold"
+                style={{
+                  fontFamily: "'Outfit', sans-serif",
+                  color: "var(--text-primary)",
+                  fontSize: "clamp(16px, 2vw, 22px)",
+                }}
+              >
                 {title}
               </h2>
             )}
             {subtitle && (
-              <p className="mt-0.5 text-[14px] text-gray-500">{subtitle}</p>
+              <p className="mt-0.5 text-sm" style={{ color: "var(--text-muted)" }}>
+                {subtitle}
+              </p>
             )}
           </div>
-          <span className="text-[14px] font-semibold text-gray-600 bg-gray-100 rounded-full px-3 py-1">
+          <span
+            className="rounded-full px-3 py-1 text-sm font-semibold"
+            style={{
+              background: "var(--bg-tertiary)",
+              color: "var(--text-secondary)",
+            }}
+          >
             {currentIndex + 1} de {total}
           </span>
         </div>
 
-        {/* Progress dots */}
         <ProgressDots total={total} currentIndex={currentIndex} />
       </div>
 
       {/* ====== MAIN CONTENT AREA ====== */}
       <div
         ref={containerRef}
-        className="flex-1 min-h-0 overflow-hidden border-x border-gray-200 bg-gray-50"
+        className="flex-1 min-h-0 overflow-hidden"
+        style={{
+          background: "var(--bg-secondary)",
+          borderLeft: "1px solid var(--glass-border)",
+          borderRight: "1px solid var(--glass-border)",
+        }}
       >
         <div
           className="h-full w-full px-6 py-8 sm:px-8 lg:px-10"
           style={{
             transform: getSlideTransform(),
-            transition: isAnimating || slideDirection
-              ? "transform 250ms cubic-bezier(0.4, 0, 0.2, 1)"
-              : "none",
+            transition:
+              isAnimating || slideDirection
+                ? "transform 250ms cubic-bezier(0.4, 0, 0.2, 1)"
+                : "none",
           }}
         >
           {currentItem && (
@@ -203,40 +222,51 @@ export function SequentialWizard({
       </div>
 
       {/* ====== BOTTOM NAVIGATION BAR ====== */}
-      <div className="flex-shrink-0 rounded-b-xl border border-gray-200 bg-white px-6 py-4">
+      <div
+        className="flex-shrink-0 rounded-b-2xl px-6 py-4"
+        style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--glass-border)",
+          borderTop: "none",
+        }}
+      >
         <div className="flex items-center justify-between">
-          {/* Left: Anterior button */}
+          {/* Left: Anterior */}
           <button
             onClick={goPrev}
             disabled={isFirst || isAnimating}
-            className={cn(
-              "inline-flex items-center justify-center gap-2 rounded-xl px-5 font-semibold transition-all",
-              "h-[48px] min-w-[140px] text-[14px]",
-              isFirst
-                ? "bg-gray-100 text-gray-300 cursor-not-allowed"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300",
-            )}
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-5 font-semibold transition-all h-12 min-w-[140px] text-sm"
+            style={{
+              background: isFirst ? "var(--bg-tertiary)" : "var(--bg-tertiary)",
+              color: isFirst ? "var(--text-muted)" : "var(--text-secondary)",
+              cursor: isFirst ? "not-allowed" : "pointer",
+              opacity: isFirst ? 0.5 : 1,
+            }}
           >
             <ChevronLeft className="h-5 w-5" />
             Anterior
           </button>
 
-          {/* Center: Position indicator */}
-          <span className="text-[14px] font-medium text-gray-500 select-none">
+          {/* Center: Position */}
+          <span className="text-sm font-medium select-none" style={{ color: "var(--text-muted)" }}>
             {currentIndex + 1} de {total}
           </span>
 
-          {/* Right: Siguiente / Finalizar button */}
+          {/* Right: Siguiente / Finalizar */}
           {isLast ? (
             <button
               onClick={goNext}
               disabled={isAnimating}
-              className={cn(
-                "inline-flex items-center justify-center gap-2 rounded-xl px-5 font-semibold text-white transition-all",
-                "h-[48px] min-w-[140px] text-[14px]",
-                "bg-green-600 hover:bg-green-700 active:bg-green-800",
-                "disabled:opacity-50 disabled:cursor-not-allowed",
-              )}
+              className="inline-flex items-center justify-center gap-2 rounded-xl px-5 font-semibold text-white transition-all h-12 min-w-[140px] text-sm disabled:opacity-50"
+              style={{ background: "var(--success)" }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+                (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 20px rgba(34, 197, 94, 0.4)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.transform = "";
+                (e.currentTarget as HTMLElement).style.boxShadow = "";
+              }}
             >
               Finalizar
               <CheckCircle className="h-5 w-5" />
@@ -245,12 +275,16 @@ export function SequentialWizard({
             <button
               onClick={goNext}
               disabled={isAnimating}
-              className={cn(
-                "inline-flex items-center justify-center gap-2 rounded-xl px-5 font-semibold text-white transition-all",
-                "h-[48px] min-w-[140px] text-[14px]",
-                "bg-blue-600 hover:bg-blue-700 active:bg-blue-800",
-                "disabled:opacity-50 disabled:cursor-not-allowed",
-              )}
+              className="inline-flex items-center justify-center gap-2 rounded-xl px-5 font-semibold text-white transition-all h-12 min-w-[140px] text-sm disabled:opacity-50"
+              style={{ background: "var(--primary-color)" }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+                (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 20px var(--primary-glow)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.transform = "";
+                (e.currentTarget as HTMLElement).style.boxShadow = "";
+              }}
             >
               Siguiente
               <ChevronRight className="h-5 w-5" />

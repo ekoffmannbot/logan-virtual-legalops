@@ -170,18 +170,21 @@ export default function NotaryPage() {
       <div className="space-y-6">
         {/* Progreso visual */}
         <div>
-          <p style={{ fontSize: "14px" }} className="font-semibold text-gray-700 mb-1">
+          <p style={{ fontSize: "14px", color: "var(--text-primary)" }} className="font-semibold mb-1">
             Progreso del tramite
           </p>
-          <p style={{ fontSize: "13px" }} className="text-gray-500 mb-4">
+          <p style={{ fontSize: "13px", color: "var(--text-muted)" }} className="mb-4">
             Paso {currentIndex + 1} de {steps.length}: {progress.stepLabel}
           </p>
           <PizzaTracker steps={steps} currentStepIndex={currentIndex} />
         </div>
 
         {/* Detalles */}
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-          <h3 style={{ fontSize: "15px" }} className="font-semibold text-gray-800">
+        <div
+          className="rounded-xl p-4 space-y-3"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+        >
+          <h3 style={{ fontSize: "15px", color: "var(--text-primary)" }} className="font-semibold">
             Detalles del documento
           </h3>
           <div className="grid grid-cols-2 gap-3">
@@ -201,16 +204,16 @@ export default function NotaryPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--primary-color)" }} />
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-2 text-red-600">
-        <AlertCircle className="h-8 w-8" />
-        <p style={{ fontSize: "14px" }}>Error al cargar tramites notariales</p>
+      <div className="flex flex-col items-center justify-center py-20 gap-2">
+        <AlertCircle className="h-8 w-8" style={{ color: "var(--danger)" }} />
+        <p style={{ fontSize: "14px", color: "var(--danger)" }}>Error al cargar tramites notariales</p>
       </div>
     );
   }
@@ -219,11 +222,17 @@ export default function NotaryPage() {
     <div className="space-y-6">
       {/* ---- HEADER ---- */}
       <div className="flex items-center gap-3">
-        <Stamp className="h-6 w-6 text-gray-700" />
-        <h1 className="text-2xl font-bold text-gray-900">
+        <Stamp className="h-6 w-6" style={{ color: "var(--text-primary)" }} />
+        <h1
+          className="text-2xl font-bold"
+          style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+        >
           Tramites Notariales
         </h1>
-        <span className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-gray-200 px-2 font-semibold text-gray-600" style={{ fontSize: "13px" }}>
+        <span
+          className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full px-2 font-semibold"
+          style={{ fontSize: "13px", background: "var(--bg-tertiary)", color: "var(--text-muted)" }}
+        >
           {documents.length}
         </span>
       </div>
@@ -235,13 +244,12 @@ export default function NotaryPage() {
             key={filter}
             type="button"
             onClick={() => setActiveFilter(filter)}
-            className={[
-              "inline-flex items-center rounded-full px-4 py-1.5 font-medium transition-colors",
+            className="inline-flex items-center rounded-full px-4 py-1.5 font-medium transition-colors"
+            style={
               activeFilter === filter
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-            ].join(" ")}
-            style={{ fontSize: "14px" }}
+                ? { fontSize: "14px", background: "var(--primary-color)", color: "#ffffff" }
+                : { fontSize: "14px", background: "var(--bg-tertiary)", color: "var(--text-muted)" }
+            }
           >
             {filter}
           </button>
@@ -250,9 +258,9 @@ export default function NotaryPage() {
 
       {/* ---- LISTA ---- */}
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-400">
-          <Stamp className="h-10 w-10" />
-          <p style={{ fontSize: "14px" }}>No hay tramites notariales</p>
+        <div className="flex flex-col items-center justify-center py-16 gap-2">
+          <Stamp className="h-10 w-10" style={{ color: "var(--text-muted)" }} />
+          <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>No hay tramites notariales</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -292,12 +300,12 @@ function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p
-        className="font-medium text-gray-500 uppercase tracking-wide"
-        style={{ fontSize: "13px" }}
+        className="font-medium uppercase tracking-wide"
+        style={{ fontSize: "13px", color: "var(--text-muted)" }}
       >
         {label}
       </p>
-      <p className="text-gray-900 mt-0.5" style={{ fontSize: "14px" }}>
+      <p className="mt-0.5" style={{ fontSize: "14px", color: "var(--text-primary)" }}>
         {value}
       </p>
     </div>

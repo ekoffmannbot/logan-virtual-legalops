@@ -143,7 +143,7 @@ export default function EmailTicketsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--primary-color)" }} />
       </div>
     );
   }
@@ -152,8 +152,8 @@ export default function EmailTicketsPage() {
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-        <AlertTriangle className="h-10 w-10 text-red-500" />
-        <p className="font-medium text-gray-800" style={{ fontSize: "16px" }}>
+        <AlertTriangle className="h-10 w-10" style={{ color: "var(--danger)" }} />
+        <p className="font-medium" style={{ fontSize: "16px", color: "var(--text-primary)" }}>
           Error al cargar la correspondencia
         </p>
       </div>
@@ -165,15 +165,21 @@ export default function EmailTicketsPage() {
     <div className="space-y-5">
       {/* ============ HEADER ============ */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-          <Mail className="h-5 w-5 text-blue-600" />
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-full"
+          style={{ background: "rgba(99,102,241,0.2)" }}
+        >
+          <Mail className="h-5 w-5" style={{ color: "var(--primary-color)" }} />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900" style={{ fontSize: "24px" }}>
+        <h1
+          className="text-2xl font-bold"
+          style={{ fontSize: "24px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+        >
           Correspondencia
         </h1>
         <span
-          className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-700 px-2.5 py-0.5 font-semibold"
-          style={{ fontSize: "13px" }}
+          className="inline-flex items-center justify-center rounded-full px-2.5 py-0.5 font-semibold"
+          style={{ fontSize: "13px", background: "var(--bg-tertiary)", color: "var(--text-muted)" }}
         >
           {tickets.length}
         </span>
@@ -188,24 +194,22 @@ export default function EmailTicketsPage() {
               key={chip.key}
               type="button"
               onClick={() => setFilter(chip.key)}
-              className={[
-                "inline-flex items-center rounded-full px-4 py-1.5 font-medium transition-colors",
+              className="inline-flex items-center rounded-full px-4 py-1.5 font-medium transition-colors"
+              style={
                 active
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-              ].join(" ")}
-              style={{ fontSize: "14px" }}
+                  ? { fontSize: "14px", background: "var(--primary-color)", color: "#ffffff" }
+                  : { fontSize: "14px", background: "var(--bg-tertiary)", color: "var(--text-muted)" }
+              }
             >
               {chip.label}
               {chip.key === "sla_riesgo" && slaCount > 0 && (
                 <span
-                  className={[
-                    "ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 font-semibold",
+                  className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 font-semibold"
+                  style={
                     active
-                      ? "bg-white/20 text-white"
-                      : "bg-red-100 text-red-700",
-                  ].join(" ")}
-                  style={{ fontSize: "13px" }}
+                      ? { fontSize: "13px", background: "rgba(255,255,255,0.2)", color: "#ffffff" }
+                      : { fontSize: "13px", background: "rgba(239,68,68,0.2)", color: "var(--danger)" }
+                  }
                 >
                   {slaCount}
                 </span>
@@ -218,13 +222,16 @@ export default function EmailTicketsPage() {
       {/* ============ LISTA / EMPTY ============ */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
-            <Mail className="h-8 w-8 text-gray-400" />
+          <div
+            className="flex h-16 w-16 items-center justify-center rounded-full mb-4"
+            style={{ background: "var(--bg-tertiary)" }}
+          >
+            <Mail className="h-8 w-8" style={{ color: "var(--text-muted)" }} />
           </div>
-          <p className="font-medium text-gray-700" style={{ fontSize: "16px" }}>
+          <p className="font-medium" style={{ fontSize: "16px", color: "var(--text-primary)" }}>
             No hay correspondencia
           </p>
-          <p className="text-gray-500 mt-1" style={{ fontSize: "14px" }}>
+          <p className="mt-1" style={{ fontSize: "14px", color: "var(--text-muted)" }}>
             No se encontraron correos con el filtro seleccionado.
           </p>
         </div>
@@ -287,10 +294,13 @@ function TicketDetail({ ticket }: { ticket: EmailTicket }) {
   return (
     <div className="space-y-6">
       {/* ---- Informacion del correo ---- */}
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+      <div
+        className="rounded-xl p-4 space-y-3"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+      >
         <h3
-          className="font-semibold text-gray-800"
-          style={{ fontSize: "15px" }}
+          className="font-semibold"
+          style={{ fontSize: "15px", color: "var(--text-primary)" }}
         >
           Informacion del Correo
         </h3>
@@ -306,11 +316,14 @@ function TicketDetail({ ticket }: { ticket: EmailTicket }) {
       </div>
 
       {/* ---- Caso asociado ---- */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-1">
-        <p className="font-medium text-gray-500" style={{ fontSize: "13px" }}>
+      <div
+        className="rounded-xl p-4 space-y-1"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+      >
+        <p className="font-medium" style={{ fontSize: "13px", color: "var(--text-muted)" }}>
           Caso Asociado
         </p>
-        <p className="font-semibold text-gray-900" style={{ fontSize: "14px" }}>
+        <p className="font-semibold" style={{ fontSize: "14px", color: "var(--text-primary)" }}>
           {ticket.matter_title || "Sin caso asociado"}
         </p>
       </div>
@@ -318,46 +331,53 @@ function TicketDetail({ ticket }: { ticket: EmailTicket }) {
       {/* ---- Countdown SLA ---- */}
       {deadline && (
         <div
-          className={[
-            "flex items-center gap-3 rounded-xl border p-4",
-            slaExpired
-              ? "border-red-200 bg-red-50"
+          className="flex items-center gap-3 rounded-xl p-4"
+          style={{
+            border: slaExpired
+              ? "1px solid rgba(239,68,68,0.3)"
               : hoursLeft !== null && hoursLeft <= 6
-                ? "border-red-200 bg-red-50"
+                ? "1px solid rgba(239,68,68,0.3)"
                 : hoursLeft !== null && hoursLeft <= 12
-                  ? "border-yellow-200 bg-yellow-50"
-                  : "border-gray-200 bg-gray-50",
-          ].join(" ")}
+                  ? "1px solid rgba(245,158,11,0.3)"
+                  : "1px solid var(--glass-border)",
+            background: slaExpired
+              ? "rgba(239,68,68,0.1)"
+              : hoursLeft !== null && hoursLeft <= 6
+                ? "rgba(239,68,68,0.1)"
+                : hoursLeft !== null && hoursLeft <= 12
+                  ? "rgba(245,158,11,0.1)"
+                  : "var(--bg-card)",
+          }}
         >
           <Clock
-            className={[
-              "h-5 w-5",
-              slaExpired
-                ? "text-red-600"
+            className="h-5 w-5"
+            style={{
+              color: slaExpired
+                ? "var(--danger)"
                 : hoursLeft !== null && hoursLeft <= 6
-                  ? "text-red-600"
+                  ? "var(--danger)"
                   : hoursLeft !== null && hoursLeft <= 12
-                    ? "text-yellow-600"
-                    : "text-gray-500",
-            ].join(" ")}
+                    ? "var(--warning)"
+                    : "var(--text-muted)",
+            }}
           />
           <div>
             <p
-              className={[
-                "font-semibold",
-                slaExpired
-                  ? "text-red-700"
+              className="font-semibold"
+              style={{
+                fontSize: "14px",
+                color: slaExpired
+                  ? "var(--danger)"
                   : hoursLeft !== null && hoursLeft <= 6
-                    ? "text-red-700"
-                    : "text-gray-700",
-              ].join(" ")}
-              style={{ fontSize: "14px" }}
+                    ? "var(--danger)"
+                    : "var(--text-primary)",
+              }}
             >
               {slaExpired
                 ? "SLA Vencido"
                 : `${hoursLeft}h restantes para cumplir SLA`}
             </p>
-            <p className="text-gray-500 mt-0.5" style={{ fontSize: "13px" }}>
+            <p className="mt-0.5" style={{ fontSize: "13px", color: "var(--text-muted)" }}>
               Fecha limite:{" "}
               {new Date(deadline).toLocaleString("es-CL", {
                 day: "2-digit",
@@ -374,8 +394,8 @@ function TicketDetail({ ticket }: { ticket: EmailTicket }) {
       {/* ---- Pizza Tracker ---- */}
       <div className="space-y-2">
         <h3
-          className="font-semibold text-gray-800"
-          style={{ fontSize: "15px" }}
+          className="font-semibold"
+          style={{ fontSize: "15px", color: "var(--text-primary)" }}
         >
           Progreso
         </h3>
@@ -396,12 +416,12 @@ function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p
-        className="font-medium text-gray-500 uppercase tracking-wide"
-        style={{ fontSize: "13px" }}
+        className="font-medium uppercase tracking-wide"
+        style={{ fontSize: "13px", color: "var(--text-muted)" }}
       >
         {label}
       </p>
-      <p className="text-gray-900 mt-0.5" style={{ fontSize: "14px" }}>
+      <p className="mt-0.5" style={{ fontSize: "14px", color: "var(--text-primary)" }}>
         {value}
       </p>
     </div>

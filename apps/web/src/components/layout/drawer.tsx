@@ -10,24 +10,15 @@ import { cn } from "@/lib/utils";
 // ---------------------------------------------------------------------------
 
 interface DrawerProps {
-  /** Whether the drawer is visible */
   open: boolean;
-  /** Called when the user requests to close (backdrop click, ESC, X button) */
   onClose: () => void;
-  /** Title displayed in the drawer header */
   title: string;
-  /** Content rendered inside the scrollable body */
   children: React.ReactNode;
-  /**
-   * CSS width of the panel on desktop.
-   * On mobile (<768 px) the drawer always spans 100 vw.
-   * @default "60vw"
-   */
   width?: string;
 }
 
 // ---------------------------------------------------------------------------
-// Drawer component
+// Drawer component (dark glassmorphism theme)
 // ---------------------------------------------------------------------------
 
 export function Drawer({
@@ -35,36 +26,26 @@ export function Drawer({
   onClose,
   title,
   children,
-  width = "60vw",
+  width = "480px",
 }: DrawerProps) {
   const [mounted, setMounted] = useState(false);
 
-  // We need to wait until the component is mounted on the client before
-  // rendering via createPortal (document.body is not available on the server).
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // ---- ESC key handler ----------------------------------------------------
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
+      if (e.key === "Escape") onClose();
     },
     [onClose],
   );
 
   useEffect(() => {
-    if (open) {
-      document.addEventListener("keydown", handleKeyDown);
-    }
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
+    if (open) document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, handleKeyDown]);
 
-  // ---- Prevent body scroll when open --------------------------------------
   useEffect(() => {
     if (open) {
       const prev = document.body.style.overflow;
@@ -75,54 +56,82 @@ export function Drawer({
     }
   }, [open]);
 
-  // Don't render anything on the server or before hydration.
   if (!mounted) return null;
 
   return createPortal(
-    // Root wrapper -- always in the DOM so transitions work.
-    // pointer-events are toggled so the backdrop doesn't block clicks when closed.
     <div
-      className={cn("fixed inset-0 z-50", open ? "pointer-events-auto" : "pointer-events-none")}
+      className={cn("fixed inset-0 z-[200]", open ? "pointer-events-auto" : "pointer-events-none")}
       aria-hidden={!open}
     >
-      {/* ----- Backdrop ----- */}
+      {/* Backdrop */}
       <div
         className={cn(
-          "absolute inset-0 bg-black/30 transition-opacity duration-300",
+          "absolute inset-0 transition-opacity duration-300",
           open ? "opacity-100" : "opacity-0",
         )}
+        style={{ background: "rgba(0, 0, 0, 0.6)" }}
         onClick={onClose}
       />
 
-      {/* ----- Panel ----- */}
+      {/* Panel */}
       <aside
         role="dialog"
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "absolute right-0 top-0 h-full w-full bg-white border-l border-gray-200 shadow-xl",
-          "flex flex-col",
+          "absolute right-0 top-0 h-full flex flex-col",
           "transition-transform duration-300 ease-out",
           open ? "translate-x-0" : "translate-x-full",
         )}
-        style={{ maxWidth: width }}
+        style={{
+          width,
+          maxWidth: "90vw",
+          background: "var(--bg-secondary)",
+          borderLeft: "1px solid var(--glass-border)",
+          boxShadow: "-10px 0 40px rgba(0, 0, 0, 0.5)",
+        }}
       >
-        {/* ---- Header ---- */}
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-lg font-semibold leading-none text-foreground">
-            {title}
-          </h2>
+        {/* Header */}
+        <div
+          className="flex items-start justify-between px-6 py-6"
+          style={{ borderBottom: "1px solid var(--glass-border)" }}
+        >
+          <div>
+            <h2
+              className="text-xl font-bold leading-none"
+              style={{
+                fontFamily: "'Outfit', sans-serif",
+                color: "var(--text-primary)",
+              }}
+            >
+              {title}
+            </h2>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 hover:bg-muted transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] transition-all duration-200"
+            style={{
+              background: "var(--bg-tertiary)",
+              color: "var(--text-secondary)",
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "var(--danger)";
+              el.style.color = "white";
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "var(--bg-tertiary)";
+              el.style.color = "var(--text-secondary)";
+            }}
             aria-label="Cerrar"
           >
-            <X className="h-5 w-5 text-muted-foreground" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* ---- Scrollable body ---- */}
+        {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">{children}</div>
       </aside>
     </div>,

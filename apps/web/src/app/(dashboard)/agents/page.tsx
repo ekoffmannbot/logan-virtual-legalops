@@ -93,10 +93,13 @@ export default function AgentsPage() {
         "Aprobaci\u00f3n Requerida",
         <div className="space-y-6">
           {/* Agent action context */}
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+          <div
+            className="rounded-xl p-4 space-y-3"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+          >
             <h3
-              className="font-semibold text-gray-800"
-              style={{ fontSize: "15px" }}
+              className="font-semibold"
+              style={{ fontSize: "15px", color: "var(--text-primary)" }}
             >
               Detalle de la Acci\u00f3n
             </h3>
@@ -141,10 +144,13 @@ export default function AgentsPage() {
         entry.agentName,
         <div className="space-y-6">
           {/* Action detail */}
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+          <div
+            className="rounded-xl p-4 space-y-3"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+          >
             <h3
-              className="font-semibold text-gray-800"
-              style={{ fontSize: "15px" }}
+              className="font-semibold"
+              style={{ fontSize: "15px", color: "var(--text-primary)" }}
             >
               Detalle de la Acci\u00f3n
             </h3>
@@ -168,16 +174,19 @@ export default function AgentsPage() {
           </div>
 
           {/* Action description */}
-          <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
+          <div
+            className="rounded-xl p-4 space-y-2"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+          >
             <h3
-              className="font-semibold text-gray-800"
-              style={{ fontSize: "15px" }}
+              className="font-semibold"
+              style={{ fontSize: "15px", color: "var(--text-primary)" }}
             >
               Acci\u00f3n Realizada
             </h3>
             <p
-              className="text-gray-700 leading-relaxed"
-              style={{ fontSize: "14px" }}
+              className="leading-relaxed"
+              style={{ fontSize: "14px", color: "var(--text-primary)" }}
             >
               {entry.action}
             </p>
@@ -185,16 +194,19 @@ export default function AgentsPage() {
 
           {/* Detail text */}
           {entry.detail && (
-            <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
+            <div
+              className="rounded-xl p-4 space-y-2"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+            >
               <h3
-                className="font-semibold text-gray-800"
-                style={{ fontSize: "15px" }}
+                className="font-semibold"
+                style={{ fontSize: "15px", color: "var(--text-primary)" }}
               >
                 Detalle
               </h3>
               <p
-                className="text-gray-600 leading-relaxed whitespace-pre-wrap"
-                style={{ fontSize: "14px" }}
+                className="leading-relaxed whitespace-pre-wrap"
+                style={{ fontSize: "14px", color: "var(--text-secondary)" }}
               >
                 {entry.detail}
               </p>
@@ -204,17 +216,17 @@ export default function AgentsPage() {
           {/* Status badge */}
           <div className="flex items-center gap-2">
             <span
-              className={[
-                "inline-flex items-center rounded-full px-3 py-1 font-medium",
-                entry.status === "completed"
-                  ? "bg-green-100 text-green-800"
+              className="inline-flex items-center rounded-full px-3 py-1 font-medium"
+              style={{
+                fontSize: "13px",
+                ...(entry.status === "completed"
+                  ? { background: "rgba(34,197,94,0.2)", color: "var(--success)" }
                   : entry.status === "in_progress"
-                    ? "bg-blue-100 text-blue-800"
+                    ? { background: "rgba(99,102,241,0.2)", color: "var(--primary-color)" }
                     : entry.status === "failed"
-                      ? "bg-red-100 text-red-800"
-                      : "bg-yellow-100 text-yellow-800",
-              ].join(" ")}
-              style={{ fontSize: "13px" }}
+                      ? { background: "rgba(239,68,68,0.2)", color: "var(--danger)" }
+                      : { background: "rgba(245,158,11,0.2)", color: "var(--warning)" }),
+              }}
             >
               {STATUS_LABELS[entry.status]}
             </span>
@@ -228,7 +240,7 @@ export default function AgentsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--primary-color)" }} />
       </div>
     );
   }
@@ -236,7 +248,7 @@ export default function AgentsPage() {
   /* ---- Error ---- */
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-2 text-red-600">
+      <div className="flex flex-col items-center justify-center py-20 gap-2" style={{ color: "var(--danger)" }}>
         <AlertTriangle className="h-8 w-8" />
         <p style={{ fontSize: "14px" }}>
           Error al cargar la actividad de agentes
@@ -252,15 +264,21 @@ export default function AgentsPage() {
       {/* HEADER                                                        */}
       {/* ============================================================ */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-          <Bot className="h-5 w-5 text-blue-600" />
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-full"
+          style={{ background: "rgba(99,102,241,0.2)" }}
+        >
+          <Bot className="h-5 w-5" style={{ color: "var(--primary-color)" }} />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900" style={{ fontSize: "24px" }}>
+        <h1
+          className="text-2xl font-bold"
+          style={{ fontSize: "24px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+        >
           Actividad de Agentes
         </h1>
         <span
-          className="inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 font-semibold"
-          style={{ fontSize: "13px" }}
+          className="inline-flex items-center justify-center rounded-full px-2.5 py-0.5 font-semibold"
+          style={{ fontSize: "13px", background: "rgba(99,102,241,0.2)", color: "var(--primary-color)" }}
         >
           {entries.length}
         </span>
@@ -277,24 +295,25 @@ export default function AgentsPage() {
               key={chip.key}
               type="button"
               onClick={() => setActiveFilter(chip.key)}
-              className={[
-                "inline-flex items-center rounded-full px-4 py-1.5 font-medium transition-colors",
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-              ].join(" ")}
-              style={{ fontSize: "14px" }}
+              className="inline-flex items-center rounded-full px-4 py-1.5 font-medium transition-colors"
+              style={{
+                fontSize: "14px",
+                background: isActive ? "var(--primary-color)" : "var(--bg-tertiary)",
+                color: isActive ? "#ffffff" : "var(--text-secondary)",
+                border: isActive ? "none" : "1px solid var(--glass-border)",
+              }}
             >
               {chip.label}
               {chip.key === "requiere_accion" && pendingApprovalCount > 0 && (
                 <span
-                  className={[
-                    "ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 font-semibold",
-                    isActive
-                      ? "bg-white/20 text-white"
-                      : "bg-orange-100 text-orange-700",
-                  ].join(" ")}
-                  style={{ fontSize: "11px" }}
+                  className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 font-semibold"
+                  style={{
+                    fontSize: "11px",
+                    background: isActive
+                      ? "rgba(255,255,255,0.2)"
+                      : "rgba(245,158,11,0.2)",
+                    color: isActive ? "#ffffff" : "var(--warning)",
+                  }}
                 >
                   {pendingApprovalCount}
                 </span>
@@ -308,11 +327,14 @@ export default function AgentsPage() {
       {/* SUMMARY BAR                                                   */}
       {/* ============================================================ */}
       {pendingApprovalCount > 0 && (
-        <div className="flex items-center gap-3 rounded-xl border border-yellow-300 bg-yellow-50 px-4 py-3">
-          <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+        <div
+          className="flex items-center gap-3 rounded-xl px-4 py-3"
+          style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)" }}
+        >
+          <AlertTriangle className="h-5 w-5 flex-shrink-0" style={{ color: "var(--warning)" }} />
           <p
-            className="font-medium text-yellow-800"
-            style={{ fontSize: "14px" }}
+            className="font-medium"
+            style={{ fontSize: "14px", color: "var(--warning)" }}
           >
             {pendingApprovalCount} acci\u00f3n{pendingApprovalCount !== 1 ? "es" : ""}{" "}
             pendiente{pendingApprovalCount !== 1 ? "s" : ""} de aprobaci\u00f3n
@@ -325,20 +347,26 @@ export default function AgentsPage() {
       {/* ============================================================ */}
       {filteredEntries.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
-            <Bot className="h-8 w-8 text-gray-400" />
+          <div
+            className="flex h-16 w-16 items-center justify-center rounded-full mb-4"
+            style={{ background: "var(--bg-tertiary)" }}
+          >
+            <Bot className="h-8 w-8" style={{ color: "var(--text-muted)" }} />
           </div>
-          <p className="font-medium text-gray-700" style={{ fontSize: "16px" }}>
+          <p className="font-medium" style={{ fontSize: "16px", color: "var(--text-primary)" }}>
             No hay actividad de agentes
           </p>
-          <p className="text-gray-500 mt-1" style={{ fontSize: "14px" }}>
+          <p className="mt-1" style={{ fontSize: "14px", color: "var(--text-muted)" }}>
             {activeFilter !== "todos"
               ? "No hay registros con este filtro."
               : "Cuando los agentes realicen acciones, aparecer\u00e1n aqu\u00ed."}
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <div
+          className="rounded-xl p-4"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)" }}
+        >
           <AgentLog
             entries={filteredEntries}
             onEntryClick={handleEntryClick}
@@ -365,12 +393,12 @@ function DetailField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p
-        className="font-medium text-gray-500 uppercase tracking-wide"
-        style={{ fontSize: "12px" }}
+        className="font-medium uppercase tracking-wide"
+        style={{ fontSize: "12px", color: "var(--text-muted)" }}
       >
         {label}
       </p>
-      <p className="text-gray-900 mt-0.5" style={{ fontSize: "14px" }}>
+      <p className="mt-0.5" style={{ fontSize: "14px", color: "var(--text-primary)" }}>
         {value}
       </p>
     </div>

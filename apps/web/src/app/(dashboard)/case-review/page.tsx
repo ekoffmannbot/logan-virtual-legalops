@@ -100,18 +100,18 @@ function InfoRow({
   label,
   value,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   label: string;
   value: string;
 }) {
   return (
     <div className="flex items-center gap-3">
-      <Icon className="h-5 w-5 text-gray-400 flex-shrink-0" />
+      <Icon className="h-5 w-5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
       <div className="min-w-0">
-        <p className="text-gray-500 leading-tight" style={{ fontSize: "13px" }}>
+        <p className="leading-tight" style={{ fontSize: "13px", color: "var(--text-muted)" }}>
           {label}
         </p>
-        <p className="font-medium text-gray-900 leading-tight truncate" style={{ fontSize: "14px" }}>
+        <p className="font-medium leading-tight truncate" style={{ fontSize: "14px", color: "var(--text-primary)" }}>
           {value}
         </p>
       </div>
@@ -191,10 +191,13 @@ export default function CaseReviewPage() {
         content: (
           <div className="space-y-6">
             {/* Encabezado de la causa */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div
+              className="rounded-xl p-6"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: 16 }}
+            >
               <h2
-                className="font-bold text-gray-900"
-                style={{ fontSize: "20px" }}
+                className="font-bold"
+                style={{ fontSize: "20px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
               >
                 {matter.title}
               </h2>
@@ -202,15 +205,15 @@ export default function CaseReviewPage() {
               {/* Chips de tribunal y ROL */}
               <div className="flex flex-wrap gap-2 mt-3">
                 <span
-                  className="inline-flex items-center gap-1.5 rounded-full bg-purple-100 text-purple-700 px-3 py-1 font-medium"
-                  style={{ fontSize: "13px" }}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-medium"
+                  style={{ fontSize: "13px", background: "rgba(168,85,247,0.2)", color: "#c084fc" }}
                 >
                   <Scale className="h-3.5 w-3.5" />
                   {matter.court}
                 </span>
                 <span
-                  className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-700 px-3 py-1 font-medium"
-                  style={{ fontSize: "13px" }}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-medium"
+                  style={{ fontSize: "13px", background: "var(--bg-tertiary)", color: "var(--text-muted)" }}
                 >
                   <FileText className="h-3.5 w-3.5" />
                   ROL {matter.rol_number}
@@ -257,8 +260,8 @@ export default function CaseReviewPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
-        <p className="text-gray-500" style={{ fontSize: "14px" }}>
+        <Loader2 className="h-10 w-10 animate-spin" style={{ color: "var(--primary-color)" }} />
+        <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>
           Cargando causas pendientes...
         </p>
       </div>
@@ -269,11 +272,11 @@ export default function CaseReviewPage() {
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <AlertTriangle className="h-10 w-10 text-red-500" />
-        <p className="font-medium text-red-600" style={{ fontSize: "14px" }}>
+        <AlertTriangle className="h-10 w-10" style={{ color: "var(--danger)" }} />
+        <p className="font-medium" style={{ fontSize: "14px", color: "var(--danger)" }}>
           Error al cargar las causas
         </p>
-        <p className="text-gray-500" style={{ fontSize: "13px" }}>
+        <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
           {error instanceof Error
             ? error.message
             : "Intente nuevamente mas tarde."}
@@ -286,11 +289,11 @@ export default function CaseReviewPage() {
   if (cases.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <CheckCircle className="h-10 w-10 text-green-500" />
-        <p className="font-semibold text-gray-900" style={{ fontSize: "16px" }}>
+        <CheckCircle className="h-10 w-10" style={{ color: "var(--success)" }} />
+        <p className="font-semibold" style={{ fontSize: "16px", color: "var(--text-primary)" }}>
           No hay causas pendientes de revision
         </p>
-        <p className="text-gray-500" style={{ fontSize: "14px" }}>
+        <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>
           Todas las causas han sido revisadas o no hay causas abiertas.
         </p>
       </div>
@@ -302,17 +305,20 @@ export default function CaseReviewPage() {
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center justify-center py-16 gap-6">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-            <CheckCircle className="h-10 w-10 text-green-600" />
+          <div
+            className="flex h-20 w-20 items-center justify-center rounded-full"
+            style={{ background: "rgba(34,197,94,0.2)" }}
+          >
+            <CheckCircle className="h-10 w-10" style={{ color: "var(--success)" }} />
           </div>
           <div className="text-center">
             <h2
-              className="font-bold text-gray-900"
-              style={{ fontSize: "20px" }}
+              className="font-bold"
+              style={{ fontSize: "20px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
             >
               Revision completada
             </h2>
-            <p className="mt-2 text-gray-600" style={{ fontSize: "14px" }}>
+            <p className="mt-2" style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
               {summary.approved} aprobadas, {summary.modified} modificadas,{" "}
               {summary.rejected} rechazadas.
             </p>
@@ -332,8 +338,8 @@ export default function CaseReviewPage() {
               setCurrentIndex(0);
               setReviewStatuses({});
             }}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 transition-colors"
-            style={{ fontSize: "15px" }}
+            className="inline-flex items-center gap-2 rounded-xl px-6 py-3 font-semibold transition-colors"
+            style={{ fontSize: "15px", background: "var(--primary-color)", color: "#ffffff" }}
           >
             Revisar nuevamente
           </button>
@@ -347,15 +353,21 @@ export default function CaseReviewPage() {
     <div className="space-y-6">
       {/* ============ HEADER ============ */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
-          <ClipboardCheck className="h-5 w-5 text-purple-600" />
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-full"
+          style={{ background: "rgba(168,85,247,0.2)" }}
+        >
+          <ClipboardCheck className="h-5 w-5" style={{ color: "#c084fc" }} />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900" style={{ fontSize: "24px" }}>
+        <h1
+          className="text-2xl font-bold"
+          style={{ fontSize: "24px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+        >
           Revision de Causas
         </h1>
         <span
-          className="inline-flex items-center justify-center rounded-full bg-purple-100 text-purple-800 px-2.5 py-0.5 font-semibold"
-          style={{ fontSize: "13px" }}
+          className="inline-flex items-center justify-center rounded-full px-2.5 py-0.5 font-semibold"
+          style={{ fontSize: "13px", background: "rgba(168,85,247,0.2)", color: "#c084fc" }}
         >
           {cases.length}
         </span>
