@@ -10,11 +10,14 @@ class InvoiceResponse(BaseModel):
     id: int
     client_name: str
     amount: int
+    amount_paid: int = 0
     currency: str
     due_date: date
+    issued_date: Optional[date] = None
     status: str
     matter_title: Optional[str] = None
     invoice_number: str
+    process_id: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

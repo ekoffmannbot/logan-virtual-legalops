@@ -38,6 +38,22 @@ def _enum_val(v: Any) -> str:
     return v.value if hasattr(v, "value") else str(v)
 
 
+def _next_hearing_date(db: Session, matter_id: int) -> Optional[datetime]:
+    """Compute the next upcoming deadline date for a matter."""
+    now = datetime.now(timezone.utc)
+    row = (
+        db.query(Deadline.due_at)
+        .filter(
+            Deadline.matter_id == matter_id,
+            Deadline.due_at >= now,
+            Deadline.status != DeadlineStatusEnum.HANDLED,
+        )
+        .order_by(Deadline.due_at.asc())
+        .first()
+    )
+    return row[0] if row else None
+
+
 def _matter_to_response(matter: Matter, db: Session) -> MatterResponse:
     """Convert a Matter ORM object to the flat list response the frontend expects."""
     # Resolve client name
@@ -65,7 +81,7 @@ def _matter_to_response(matter: Matter, db: Session) -> MatterResponse:
         assigned_to_name=lawyer_name,  # frontend alias
         court=getattr(matter, "court_name", None),
         rol=getattr(matter, "rol_number", None),
-        next_hearing_date=None,  # TODO: compute from upcoming Deadline
+        next_hearing_date=_next_hearing_date(db, matter.id),
         last_movement_at=matter.updated_at,
         created_at=matter.created_at,
     )

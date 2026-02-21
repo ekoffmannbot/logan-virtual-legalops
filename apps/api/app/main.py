@@ -13,11 +13,10 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # CORS: allow localhost + Vercel deployments + configurable origins via CORS_ORIGINS env var
+    # CORS: allow localhost + Vercel deployments (via regex) + configurable origins via CORS_ORIGINS env var
     origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://web-iota-jade-76.vercel.app",
     ]
     import os
     extra_origins = os.getenv("CORS_ORIGINS", "")

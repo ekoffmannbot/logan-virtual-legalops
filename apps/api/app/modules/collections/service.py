@@ -84,15 +84,19 @@ def list_invoices(
 
     results = []
     for inv, client_full_name, m_title in rows:
+        amount_paid = _amount_paid_for_invoice(db, inv.id)
         results.append({
             "id": inv.id,
             "client_name": client_full_name or "—",
             "amount": inv.amount,
+            "amount_paid": amount_paid,
             "currency": inv.currency,
             "due_date": inv.due_date,
+            "issued_date": inv.created_at.date() if inv.created_at else None,
             "status": inv.status if isinstance(inv.status, str) else inv.status.value,
             "matter_title": m_title,
             "invoice_number": _invoice_number(inv.id),
+            "process_id": "proceso-cobranza",
             "created_at": inv.created_at,
         })
     return results

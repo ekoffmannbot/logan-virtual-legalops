@@ -463,7 +463,7 @@ export function getMockData(path: string): any {
   if (cleanPath.match(/^\/scraper\/jobs\/\d+\/results$/)) return scraperResults;
 
   // Tasks
-  if (cleanPath === "/tasks") return tasks;
+  if (cleanPath === "/tasks") return { items: tasks, total: tasks.length };
   if (cleanPath === "/tasks/stats") return taskStats;
 
   // Documents
