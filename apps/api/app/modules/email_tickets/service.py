@@ -96,6 +96,18 @@ def _resolve_matter_title(db: Session, matter_id: Optional[int]) -> Optional[str
     return matter.title if matter else None
 
 
+def _compute_priority(ticket: EmailTicket) -> str:
+    """Derive a priority label based on SLA deadlines."""
+    now = datetime.now(timezone.utc)
+    if ticket.sla_due_24h_at:
+        remaining = (ticket.sla_due_24h_at - now).total_seconds()
+        if remaining < 0:
+            return "critical"
+        if remaining < 4 * 3600:
+            return "high"
+    return "medium"
+
+
 def _ticket_to_item(db: Session, ticket: EmailTicket) -> dict:
     """Build list-item dict matching EmailTicketItem schema."""
     return {
@@ -105,8 +117,11 @@ def _ticket_to_item(db: Session, ticket: EmailTicket) -> dict:
         "from_name": _extract_from_name(ticket.from_email),
         "received_at": ticket.received_at,
         "status": ticket.status if isinstance(ticket.status, str) else ticket.status.value,
+        "priority": _compute_priority(ticket),
         "assigned_to": ticket.assigned_to_user_id,
         "assigned_to_name": _resolve_assigned_to_name(db, ticket.assigned_to_user_id),
+        "matter_title": _resolve_matter_title(db, ticket.matter_id),
+        "sla_deadline": ticket.sla_due_24h_at,       # frontend alias
         "sla_24h_deadline": ticket.sla_due_24h_at,
         "sla_48h_deadline": ticket.sla_due_48h_at,
         "sla_24h_met": _compute_sla_24h_met(ticket),

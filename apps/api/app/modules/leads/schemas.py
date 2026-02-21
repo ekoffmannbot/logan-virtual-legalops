@@ -39,6 +39,8 @@ class LeadResponse(BaseModel):
     status: str
     phone: Optional[str] = None
     email: Optional[str] = None
+    company: Optional[str] = None
+    notes: Optional[str] = None
     assigned_to_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime

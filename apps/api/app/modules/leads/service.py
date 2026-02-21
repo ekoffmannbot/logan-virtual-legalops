@@ -38,6 +38,7 @@ def _lead_to_dict(lead: Lead, assigned_to_name: Optional[str] = None) -> dict:
         "status": lead.status.value if hasattr(lead.status, "value") else lead.status,
         "phone": lead.phone,
         "email": lead.email,
+        "company": getattr(lead, "company", None),  # frontend field
         "rut": getattr(lead, "rut", None),
         "notes": lead.notes,
         "assigned_to_name": assigned_to_name,

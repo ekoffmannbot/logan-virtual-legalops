@@ -23,9 +23,48 @@ from app.modules.templates.schemas import TemplateCreate
 router = APIRouter()
 
 
+def _map_user(user: User) -> dict:
+    """Map a User ORM object to the shape the admin frontend expects."""
+    role_val = user.role if isinstance(user.role, str) else user.role.value
+    return {
+        "id": user.id,
+        "organization_id": user.organization_id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": role_val,
+        "active": user.active,
+        "is_active": user.active,  # frontend alias
+        "last_login_at": user.last_login_at,
+        "last_login": user.last_login_at,  # frontend alias
+        "created_at": user.created_at,
+        "updated_at": user.updated_at,
+    }
+
+
+def _map_template(tmpl) -> dict:
+    """Map a Template ORM object to the shape the admin frontend expects."""
+    return {
+        "id": tmpl.id,
+        "org_id": tmpl.organization_id,
+        "template_type": tmpl.template_type,
+        "type": tmpl.template_type,  # frontend alias
+        "name": tmpl.name,
+        "content_text": tmpl.content_text,
+        "content": tmpl.content_text,  # frontend alias
+        "variables_json": tmpl.variables_json,
+        "variables": tmpl.variables_json,  # frontend alias
+        "active": tmpl.active,
+        "is_active": tmpl.active,  # frontend alias
+        "category": tmpl.template_type,  # frontend alias
+        "status": "active" if tmpl.active else "archived",  # frontend alias
+        "created_at": tmpl.created_at,
+        "updated_at": tmpl.updated_at,
+    }
+
+
 # ── Users endpoints ──────────────────────────────────────────────────────────
 
-@router.get("/users", response_model=AdminUserListResponse)
+@router.get("/users")
 def list_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
@@ -34,12 +73,14 @@ def list_users(
         require_role(RoleEnum.GERENTE_LEGAL, RoleEnum.ADMINISTRACION)
     ),
 ):
-    """List users in the current organization (admin)."""
+    """List users in the current organization (admin).
+    Returns a plain array (frontend expects User[]).
+    """
     items, total = service.list_users(db, current_user.organization_id, skip, limit)
-    return AdminUserListResponse(items=items, total=total)
+    return [_map_user(u) for u in items]
 
 
-@router.post("/users", response_model=AdminUserResponse, status_code=201)
+@router.post("/users", status_code=201)
 def create_user(
     data: AdminUserCreate,
     db: Session = Depends(get_db),
@@ -54,10 +95,11 @@ def create_user(
         full_name=data.full_name,
         role=data.role,
     )
-    return service.create_user(db, user_data, current_user.organization_id)
+    user = service.create_user(db, user_data, current_user.organization_id)
+    return _map_user(user)
 
 
-@router.patch("/users/{user_id}", response_model=AdminUserResponse)
+@router.patch("/users/{user_id}")
 def update_user(
     user_id: int,
     data: AdminUserUpdate,
@@ -73,12 +115,13 @@ def update_user(
         role=data.role,
         active=data.active,
     )
-    return service.update_user(db, user_id, current_user.organization_id, user_data)
+    user = service.update_user(db, user_id, current_user.organization_id, user_data)
+    return _map_user(user)
 
 
 # ── Templates endpoints ─────────────────────────────────────────────────────
 
-@router.get("/templates", response_model=AdminTemplateListResponse)
+@router.get("/templates")
 def list_templates(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
@@ -87,12 +130,12 @@ def list_templates(
         require_role(RoleEnum.GERENTE_LEGAL, RoleEnum.ADMINISTRACION)
     ),
 ):
-    """List templates (admin)."""
+    """List templates (admin). Returns a plain array (frontend expects Template[])."""
     items = service.list_templates(db, current_user.organization_id, skip, limit)
-    return AdminTemplateListResponse(items=items, total=len(items))
+    return [_map_template(t) for t in items]
 
 
-@router.post("/templates", response_model=AdminTemplateResponse, status_code=201)
+@router.post("/templates", status_code=201)
 def create_template(
     data: AdminTemplateCreate,
     db: Session = Depends(get_db),
@@ -107,7 +150,8 @@ def create_template(
         content_text=data.content_text,
         variables_json=data.variables_json,
     )
-    return service.create_template(db, tmpl_data, current_user.organization_id)
+    tmpl = service.create_template(db, tmpl_data, current_user.organization_id)
+    return _map_template(tmpl)
 
 
 @router.post("/templates/{template_id}/archive", status_code=200)

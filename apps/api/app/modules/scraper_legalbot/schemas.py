@@ -24,6 +24,13 @@ class ScraperJobResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
+    # Frontend-friendly aliases
+    name: Optional[str] = None            # human-readable job name
+    query: Optional[str] = None           # alias for keyword
+    court: Optional[str] = None           # extracted from base_url
+    results_count: int = 0                # alias for results_count_int
+    completed_at: Optional[datetime] = None  # alias for finished_at
+
     model_config = {"from_attributes": True}
 
 

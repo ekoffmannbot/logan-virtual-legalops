@@ -17,4 +17,9 @@ class DocumentResponse(BaseModel):
     created_at: datetime
     metadata_json: Optional[dict] = None
 
+    # Frontend-friendly aliases
+    name: Optional[str] = None              # alias for file_name
+    uploaded_by_name: Optional[str] = None   # resolved user name
+    file_url: Optional[str] = None           # download URL
+
     model_config = {"from_attributes": True}

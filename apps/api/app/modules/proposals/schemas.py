@@ -34,12 +34,16 @@ class TransitionRequest(BaseModel):
 class ProposalResponse(BaseModel):
     """Shape expected by the frontend list view."""
     id: int
+    title: Optional[str] = None
     client_name: Optional[str] = None
     client_id: Optional[int] = None
     amount: Optional[int] = None
+    currency: Optional[str] = "CLP"
     status: str
     sent_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
+    valid_until: Optional[datetime] = None  # alias for expires_at
+    assigned_to_name: Optional[str] = None  # alias for created_by_name
     created_by_name: Optional[str] = None
     created_at: datetime
 

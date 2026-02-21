@@ -32,7 +32,10 @@ class TransitionRequest(BaseModel):
 # ── List / simple response ───────────────────────────────────────
 
 class MatterResponse(BaseModel):
-    """Used by GET /matters (list) and POST /matters (create)."""
+    """Used by GET /matters (list) and POST /matters (create).
+
+    Provides both canonical and frontend-friendly field names.
+    """
     id: int
     title: str
     client_name: str
@@ -40,7 +43,15 @@ class MatterResponse(BaseModel):
     matter_type: str
     status: str
     assigned_lawyer_name: Optional[str] = None
+    court: Optional[str] = None
+    rol: Optional[str] = None
+    next_hearing_date: Optional[datetime] = None
+    last_movement_at: Optional[datetime] = None
     created_at: datetime
+
+    # Frontend-friendly aliases
+    type: Optional[str] = None              # alias for matter_type
+    assigned_to_name: Optional[str] = None  # alias for assigned_lawyer_name
 
     model_config = {"from_attributes": True}
 

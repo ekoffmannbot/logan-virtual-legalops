@@ -52,14 +52,21 @@ def _matter_to_response(matter: Matter, db: Session) -> MatterResponse:
             .scalar()
         )
 
+    mt = _enum_val(matter.matter_type)
     return MatterResponse(
         id=matter.id,
         title=matter.title,
         client_name=client or "—",
         client_id=matter.client_id,
-        matter_type=_enum_val(matter.matter_type),
+        matter_type=mt,
+        type=mt,  # frontend alias
         status=_enum_val(matter.status),
         assigned_lawyer_name=lawyer_name,
+        assigned_to_name=lawyer_name,  # frontend alias
+        court=getattr(matter, "court_name", None),
+        rol=getattr(matter, "rol_number", None),
+        next_hearing_date=None,  # TODO: compute from upcoming Deadline
+        last_movement_at=matter.updated_at,
         created_at=matter.created_at,
     )
 

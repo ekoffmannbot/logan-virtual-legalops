@@ -12,8 +12,11 @@ class EmailTicketItem(BaseModel):
     from_name: str
     received_at: datetime
     status: str
+    priority: Optional[str] = "medium"
     assigned_to: Optional[int] = None
     assigned_to_name: Optional[str] = None
+    matter_title: Optional[str] = None
+    sla_deadline: Optional[datetime] = None       # alias for sla_24h_deadline
     sla_24h_deadline: Optional[datetime] = None
     sla_48h_deadline: Optional[datetime] = None
     sla_24h_met: Optional[bool] = None

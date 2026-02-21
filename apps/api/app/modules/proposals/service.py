@@ -85,14 +85,23 @@ def _resolve_names(
 def _to_response(db: Session, proposal: Proposal) -> ProposalResponse:
     """Convert a Proposal ORM instance to the list-view response shape."""
     client_name, created_by_name = _resolve_names(db, proposal)
+    # Build a human-readable title
+    title = proposal.strategy_summary_text[:60] if proposal.strategy_summary_text else None
+    if not title and client_name:
+        title = f"Propuesta {client_name}"
+    currency = getattr(proposal, "currency", "CLP") or "CLP"
     return ProposalResponse(
         id=proposal.id,
+        title=title,
         client_name=client_name,
         client_id=proposal.client_id,
         amount=proposal.amount,
+        currency=currency,
         status=_get_status_value(proposal),
         sent_at=proposal.sent_at,
         expires_at=proposal.expires_at,
+        valid_until=proposal.expires_at,  # frontend alias
+        assigned_to_name=created_by_name,  # frontend alias
         created_by_name=created_by_name,
         created_at=proposal.created_at,
     )

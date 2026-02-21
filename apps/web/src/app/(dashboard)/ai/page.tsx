@@ -55,7 +55,7 @@ export default function AIAssistantPage() {
 
   const { data: mattersData } = useQuery({
     queryKey: ["ai", "matters"],
-    queryFn: () => api.get<{ items: Matter[]; total: number }>("/matters?status=active&limit=100"),
+    queryFn: () => api.get<{ items: Matter[]; total: number }>("/matters?status=open&limit=100"),
   });
   const matters = mattersData?.items ?? [];
 

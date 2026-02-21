@@ -18,7 +18,7 @@ from app.modules.clients import service
 router = APIRouter()
 
 
-@router.get("/", response_model=ClientListResponse)
+@router.get("/")
 def list_clients(
     search: Optional[str] = Query(None, description="Search by name or RUT"),
     skip: int = Query(0, ge=0),
@@ -26,11 +26,13 @@ def list_clients(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List clients in the current organization with optional search."""
+    """List clients in the current organization with optional search.
+    Returns a plain array (frontend expects Client[]).
+    """
     items, total = service.list_clients(
         db, current_user.organization_id, search, skip, limit
     )
-    return ClientListResponse(items=items, total=total)
+    return items
 
 
 @router.get("/{client_id}", response_model=ClientResponse)

@@ -6,13 +6,43 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.db.models.user import User
 from app.modules.documents import service
 from app.modules.documents.schemas import DocumentResponse
 
 router = APIRouter()
 
 
-@router.post("/upload", response_model=DocumentResponse, status_code=201)
+def _enrich_doc(doc, db: Session) -> dict:
+    """Add frontend-friendly fields to a Document ORM object."""
+    status_val = doc.status if isinstance(doc.status, str) else doc.status.value
+    doc_type_val = doc.doc_type if isinstance(doc.doc_type, str) else doc.doc_type.value
+    # Resolve uploaded_by_name
+    uploaded_by_name = None
+    if doc.uploaded_by_user_id:
+        user = db.query(User.full_name).filter(User.id == doc.uploaded_by_user_id).first()
+        if user:
+            uploaded_by_name = user[0]
+    return {
+        "id": doc.id,
+        "entity_type": doc.entity_type,
+        "entity_id": doc.entity_id,
+        "doc_type": doc_type_val,
+        "file_name": doc.file_name,
+        "storage_path": doc.storage_path,
+        "version_int": doc.version_int,
+        "status": status_val,
+        "uploaded_by_user_id": doc.uploaded_by_user_id,
+        "created_at": doc.created_at,
+        "metadata_json": doc.metadata_json,
+        # Frontend aliases
+        "name": doc.file_name,
+        "uploaded_by_name": uploaded_by_name,
+        "file_url": f"/api/v1/documents/{doc.id}/download",
+    }
+
+
+@router.post("/upload", status_code=201)
 def upload_document(
     file: UploadFile = File(...),
     entity_type: str = Form(...),
@@ -21,7 +51,7 @@ def upload_document(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    return service.upload_document(
+    doc = service.upload_document(
         db,
         file=file,
         entity_type=entity_type,
@@ -30,9 +60,10 @@ def upload_document(
         user_id=current_user.id,
         org_id=current_user.organization_id,
     )
+    return _enrich_doc(doc, db)
 
 
-@router.get("/", response_model=List[DocumentResponse])
+@router.get("/")
 def list_documents(
     entity_type: Optional[str] = Query(None),
     entity_id: Optional[int] = Query(None),
@@ -41,7 +72,7 @@ def list_documents(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    return service.list_documents(
+    docs = service.list_documents(
         db,
         org_id=current_user.organization_id,
         entity_type=entity_type,
@@ -49,15 +80,17 @@ def list_documents(
         skip=skip,
         limit=limit,
     )
+    return [_enrich_doc(d, db) for d in docs]
 
 
-@router.get("/{document_id}", response_model=DocumentResponse)
+@router.get("/{document_id}")
 def get_document(
     document_id: int,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    return service.get_document(db, document_id, current_user.organization_id)
+    doc = service.get_document(db, document_id, current_user.organization_id)
+    return _enrich_doc(doc, db)
 
 
 @router.get("/{document_id}/download")
