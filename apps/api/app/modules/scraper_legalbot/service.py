@@ -13,6 +13,9 @@ from app.db.models.lead import Lead
 from app.db.enums import ScraperJobStatusEnum, LeadSourceEnum, LeadStatusEnum
 from app.modules.scraper_legalbot.schemas import ScraperJobCreate
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -53,6 +56,8 @@ def run_job(db: Session, job_id: int, org_id: int) -> ScraperJob:
     try:
         if settings.SCRAPER_MODE == "mock":
             results = _run_mock(db, job, org_id)
+        elif settings.SCRAPER_MODE == "brave":
+            results = _run_brave_search(db, job, org_id)
         else:
             results = _run_real(db, job, org_id)
 
@@ -68,6 +73,56 @@ def run_job(db: Session, job_id: int, org_id: int) -> ScraperJob:
     db.commit()
     db.refresh(job)
     return job
+
+
+def _run_brave_search(db: Session, job: ScraperJob, org_id: int) -> List[ScraperResult]:
+    """Search using Brave Search API for legal/business intelligence."""
+    import httpx
+
+    api_key = settings.BRAVE_SEARCH_API_KEY
+    if not api_key:
+        raise HTTPException(status_code=500, detail="BRAVE_SEARCH_API_KEY no configurada")
+
+    results = []
+    now = datetime.now(timezone.utc)
+
+    query = f"{job.keyword} Chile derecho legal"
+    if job.base_url:
+        query = f"site:{job.base_url} {job.keyword}"
+
+    with httpx.Client(timeout=30) as client:
+        resp = client.get(
+            "https://api.search.brave.com/res/v1/web/search",
+            headers={
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip",
+                "X-Subscription-Token": api_key,
+            },
+            params={
+                "q": query,
+                "count": min(job.page_limit_int, 20),
+                "search_lang": "es",
+                "country": "CL",
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    web_results = data.get("web", {}).get("results", [])
+    for item in web_results:
+        result = ScraperResult(
+            organization_id=org_id,
+            scraper_job_id=job.id,
+            url=item.get("url", ""),
+            title=item.get("title", "")[:500],
+            snippet=item.get("description", "")[:500],
+            found_at=now,
+        )
+        db.add(result)
+        results.append(result)
+
+    db.flush()
+    return results
 
 
 def _run_mock(db: Session, job: ScraperJob, org_id: int) -> List[ScraperResult]:

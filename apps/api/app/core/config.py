@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     AI_PROVIDER: str = "mock"
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
+    KIMI_API_KEY: str = ""
+    KIMI_MODEL: str = "moonshot-v1-8k"
+    GEMINI_API_KEY: str = ""
+    BRAVE_SEARCH_API_KEY: str = ""
+    OPENAI_MODEL: str = "o3"
 
     # Scraper
     SCRAPER_USER_AGENT: str = "LoganVirtual/1.0"
