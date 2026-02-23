@@ -1,11 +1,8 @@
 """
-Multi-provider AI system for Logan Virtual.
+AI Provider for Logan Virtual — Claude Sonnet powers everything.
 
-Tier strategy:
-  - Claude Sonnet 4.6 (Anthropic): Default provider - chat, emails, proposals, summaries
-  - GPT o3 (OpenAI): Complex tasks - deep legal analysis, case strategy
-  - Kimi (Moonshot): Lightweight agent tasks - reminders, scripts, short drafts
-  - Mock: Graceful fallback when no API keys are configured
+Single provider, maximum power. MockAIProvider only activates
+if ANTHROPIC_API_KEY is missing (graceful degradation).
 """
 
 import logging
@@ -13,7 +10,6 @@ from typing import Protocol
 
 logger = logging.getLogger(__name__)
 
-# ── Protocol ──────────────────────────────────────────────────────────────────
 
 class AIProvider(Protocol):
     def draft_email(self, context: str) -> dict: ...
@@ -22,296 +18,176 @@ class AIProvider(Protocol):
     def ask(self, question: str, context: str) -> dict: ...
 
 
-# ── Mock Provider ─────────────────────────────────────────────────────────────
-
 class MockAIProvider:
+    """Fallback when no API key is configured."""
+
     def draft_email(self, context: str) -> dict:
         return {
-            "draft": f"Estimado/a cliente,\n\nEn relación a su consulta sobre {context[:100]}...\n\nQuedamos atentos a sus comentarios.\n\nSaludos cordiales,\nLogan & Logan Abogados",
-            "confidence": 0.85,
-            "sources": []
+            "draft": (
+                "Estimado/a cliente,\n\n"
+                f"En relación a su consulta sobre {context[:100]}...\n\n"
+                "Quedamos atentos a sus comentarios.\n\n"
+                "Saludos cordiales,\nLogan & Logan Abogados"
+            ),
+            "confidence": 0.5,
+            "sources": [],
         }
 
     def draft_proposal(self, context: str) -> dict:
         return {
-            "draft": f"PROPUESTA DE SERVICIOS JURÍDICOS\n\nEstimado/a cliente,\n\nDe acuerdo a la entrevista realizada, le presentamos nuestra propuesta para {context[:100]}...\n\nHonorarios: A convenir\nModalidad de pago: Cuotas mensuales\n\nQuedamos a su disposición.",
-            "confidence": 0.80,
-            "sources": []
+            "draft": (
+                "PROPUESTA DE SERVICIOS JURÍDICOS\n\n"
+                f"Propuesta para {context[:100]}...\n\n"
+                "Honorarios: A convenir\nModalidad: Cuotas mensuales"
+            ),
+            "confidence": 0.5,
+            "sources": [],
         }
 
     def summarize_matter(self, context: str) -> dict:
         return {
-            "summary": f"RESUMEN DEL CASO\n\nEl caso presenta las siguientes características principales basado en la información proporcionada:\n\n1. Contexto: {context[:200]}...\n2. Estado actual: En proceso\n3. Próximos pasos sugeridos: Revisar documentación pendiente\n\nNota: Este resumen fue generado automáticamente y debe ser validado por el abogado a cargo.",
-            "confidence": 0.75,
+            "summary": f"Resumen automático del caso.\n\n{context[:200]}...\n\nRequiere revisión del abogado a cargo.",
+            "confidence": 0.5,
             "sources": [],
-            "next_steps": ["Revisar documentación", "Contactar al cliente", "Actualizar plazos"]
+            "next_steps": ["Revisar documentación", "Contactar al cliente"],
         }
 
     def ask(self, question: str, context: str) -> dict:
         return {
-            "answer": f"Basado en la documentación del caso, respecto a su pregunta '{question[:100]}': La información disponible sugiere que se debe revisar la documentación pertinente. Se recomienda consultar con el abogado a cargo para una respuesta definitiva.",
-            "confidence": 0.70,
-            "sources": [{"document_id": None, "chunk": "Información del caso"}]
+            "answer": (
+                f"Respecto a '{question[:80]}': se recomienda consultar con el "
+                "abogado a cargo para una respuesta definitiva."
+            ),
+            "confidence": 0.5,
+            "sources": [],
         }
 
 
-# ── Anthropic Provider (Claude Sonnet 4.6) ────────────────────────────────────
-
-class AnthropicProvider:
-    """Primary AI provider using Anthropic Claude for general tasks."""
+class ClaudeProvider:
+    """
+    Full-power AI provider using Anthropic Claude.
+    Handles ALL tasks: chat, emails, proposals, case analysis, agent drafts.
+    """
 
     def __init__(self, api_key: str, model: str = "claude-sonnet-4-20250514"):
         import anthropic
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
 
-    def _system_prompt(self) -> str:
-        return (
-            "Eres un asistente legal AI para Logan & Logan Abogados, "
-            "un estudio jurídico chileno. Responde siempre en español chileno formal. "
-            "Sé preciso, profesional y conciso. Cuando redactes documentos legales, "
-            "usa formato formal chileno. No inventes información que no esté en el contexto."
-        )
+    # ── Core call ──────────────────────────────────────────────────
 
-    def _call(self, user_message: str, max_tokens: int = 2048) -> str:
+    def _call(self, system: str, user_message: str, max_tokens: int = 2048) -> str:
         response = self.client.messages.create(
             model=self.model,
             max_tokens=max_tokens,
-            system=self._system_prompt(),
+            system=system,
             messages=[{"role": "user", "content": user_message}],
         )
         return response.content[0].text
 
+    # ── System prompts by role ─────────────────────────────────────
+
+    SYSTEM_GENERAL = (
+        "Eres el asistente legal AI de Logan & Logan Abogados, un estudio jurídico "
+        "chileno de primer nivel. Respondes siempre en español chileno formal. "
+        "Eres preciso, profesional y conciso. Citas normas legales chilenas cuando "
+        "es pertinente (CPC, CC, CT, Ley 19.496, etc.). No inventas información."
+    )
+
+    SYSTEM_EMAIL = (
+        "Eres el redactor de emails de Logan & Logan Abogados. Redactas emails "
+        "profesionales, formales y empáticos en español chileno. Formato: saludo "
+        "formal, cuerpo claro con la información relevante, despedida cordial. "
+        "Firma siempre como 'Logan & Logan Abogados'."
+    )
+
+    SYSTEM_PROPOSAL = (
+        "Eres el especialista en propuestas comerciales de Logan & Logan Abogados. "
+        "Redactas propuestas de servicios jurídicos detalladas y convincentes. "
+        "Incluyes: análisis preliminar, estrategia legal propuesta con base normativa, "
+        "desglose de honorarios, modalidad de pago, plazos estimados, y cláusulas "
+        "de confidencialidad. Formato profesional chileno."
+    )
+
+    SYSTEM_ANALYST = (
+        "Eres el analista legal senior de Logan & Logan Abogados. Realizas análisis "
+        "jurídicos exhaustivos de casos. Incluyes: resumen ejecutivo, marco normativo "
+        "aplicable con citas legales, estado procesal, estrategia recomendada con "
+        "alternativas, riesgos y contingencias, próximos pasos concretos con plazos. "
+        "Eres meticuloso y fundamentado."
+    )
+
+    SYSTEM_AGENT = (
+        "Eres un asistente operativo de Logan & Logan Abogados. Generas textos "
+        "breves, claros y profesionales para tareas internas: recordatorios de "
+        "cobranza, seguimientos de propuestas, guiones de llamada, alertas de SLA, "
+        "y resúmenes ejecutivos. Máximo 5-8 líneas. Español chileno formal."
+    )
+
+    # ── Provider methods ───────────────────────────────────────────
+
     def draft_email(self, context: str) -> dict:
         prompt = (
-            "Redacta un email profesional de respuesta al cliente basado en este contexto. "
-            "Usa formato formal chileno con saludo, cuerpo y despedida.\n\n"
+            "Redacta un email profesional de respuesta al cliente.\n\n"
             f"Contexto:\n{context}"
         )
-        return {"draft": self._call(prompt), "confidence": 0.9, "sources": []}
+        return {"draft": self._call(self.SYSTEM_EMAIL, prompt), "confidence": 0.92, "sources": []}
 
     def draft_proposal(self, context: str) -> dict:
         prompt = (
-            "Redacta una propuesta de servicios jurídicos profesional basada en este contexto. "
-            "Incluye: estrategia propuesta, honorarios sugeridos, modalidad de pago, "
-            "y plazos estimados.\n\n"
+            "Redacta una propuesta de servicios jurídicos completa y profesional.\n\n"
             f"Contexto:\n{context}"
         )
-        return {"draft": self._call(prompt), "confidence": 0.85, "sources": []}
+        return {"draft": self._call(self.SYSTEM_PROPOSAL, prompt, max_tokens=4096), "confidence": 0.90, "sources": []}
 
     def summarize_matter(self, context: str) -> dict:
         prompt = (
-            "Resume este caso legal de forma clara y estructurada. Incluye: "
-            "1) Resumen general, 2) Estado actual, 3) Próximos pasos sugeridos, "
-            "4) Riesgos identificados.\n\n"
+            "Realiza un análisis legal completo de este caso.\n\n"
             f"Información del caso:\n{context}"
         )
-        text = self._call(prompt)
-        return {
-            "summary": text,
-            "confidence": 0.85,
-            "sources": [],
-            "next_steps": [],
-        }
+        text = self._call(self.SYSTEM_ANALYST, prompt, max_tokens=4096)
+        return {"summary": text, "confidence": 0.90, "sources": [], "next_steps": []}
 
     def ask(self, question: str, context: str) -> dict:
         prompt = f"Pregunta: {question}"
         if context:
             prompt = f"Contexto del caso:\n{context}\n\nPregunta: {question}"
-        return {
-            "answer": self._call(prompt),
-            "confidence": 0.85,
-            "sources": [],
-        }
+        return {"answer": self._call(self.SYSTEM_GENERAL, prompt), "confidence": 0.90, "sources": []}
+
+    # ── Agent-specific helpers (used by Celery tasks) ──────────────
+
+    def agent_draft(self, prompt: str) -> str:
+        """Short draft for Celery agent tasks (cobranza, SLA, notary, etc.)."""
+        return self._call(self.SYSTEM_AGENT, prompt, max_tokens=512)
 
 
-# ── OpenAI Provider (GPT o3 / 5.2 Pro) ───────────────────────────────────────
+# ── Factory ───────────────────────────────────────────────────────────────────
 
-class OpenAIProvider:
-    """Heavy-duty AI provider for complex legal analysis using GPT."""
+_cached_provider: AIProvider | None = None
 
-    def __init__(self, api_key: str, model: str = "gpt-4o"):
-        from openai import OpenAI
-        self.client = OpenAI(api_key=api_key)
-        self.model = model
-
-    def _system_prompt(self) -> str:
-        return (
-            "Eres un abogado senior AI experto en derecho chileno, trabajando para "
-            "Logan & Logan Abogados. Tu especialidad es análisis legal profundo, "
-            "estrategia de litigación y opiniones legales complejas. "
-            "Responde siempre en español chileno formal y profesional. "
-            "Cita normas legales chilenas cuando sea pertinente (CPC, CC, CT, etc.)."
-        )
-
-    def _call(self, user_message: str, max_tokens: int = 4096) -> str:
-        response = self.client.chat.completions.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            messages=[
-                {"role": "system", "content": self._system_prompt()},
-                {"role": "user", "content": user_message},
-            ],
-        )
-        return response.choices[0].message.content
-
-    def draft_email(self, context: str) -> dict:
-        prompt = (
-            "Redacta un email profesional de respuesta al cliente basado en este contexto. "
-            "Usa formato formal chileno con saludo, cuerpo y despedida.\n\n"
-            f"Contexto:\n{context}"
-        )
-        return {"draft": self._call(prompt), "confidence": 0.92, "sources": []}
-
-    def draft_proposal(self, context: str) -> dict:
-        prompt = (
-            "Redacta una propuesta de servicios jurídicos detallada y profesional. "
-            "Incluye: análisis preliminar del caso, estrategia propuesta con base legal, "
-            "honorarios sugeridos con desglose, modalidad de pago, plazos estimados, "
-            "y riesgos identificados.\n\n"
-            f"Contexto:\n{context}"
-        )
-        return {"draft": self._call(prompt, max_tokens=6000), "confidence": 0.90, "sources": []}
-
-    def summarize_matter(self, context: str) -> dict:
-        prompt = (
-            "Realiza un análisis legal exhaustivo de este caso. Incluye: "
-            "1) Resumen ejecutivo, 2) Análisis jurídico con normas aplicables, "
-            "3) Estado procesal actual, 4) Estrategia recomendada con alternativas, "
-            "5) Riesgos y contingencias, 6) Próximos pasos concretos con plazos.\n\n"
-            f"Información del caso:\n{context}"
-        )
-        text = self._call(prompt, max_tokens=6000)
-        return {
-            "summary": text,
-            "confidence": 0.90,
-            "sources": [],
-            "next_steps": [],
-        }
-
-    def ask(self, question: str, context: str) -> dict:
-        prompt = f"Pregunta legal: {question}"
-        if context:
-            prompt = (
-                f"Contexto del caso:\n{context}\n\n"
-                f"Pregunta legal (responde con análisis profundo y citas legales):\n{question}"
-            )
-        return {
-            "answer": self._call(prompt),
-            "confidence": 0.90,
-            "sources": [],
-        }
-
-
-# ── Kimi Provider (Moonshot - lightweight agent tasks) ────────────────────────
-
-class KimiProvider:
-    """Lightweight AI provider for simple agent tasks using Kimi/Moonshot API."""
-
-    def __init__(self, api_key: str, model: str = "moonshot-v1-8k"):
-        from openai import OpenAI
-        self.client = OpenAI(
-            api_key=api_key,
-            base_url="https://api.moonshot.cn/v1",
-        )
-        self.model = model
-
-    def _system_prompt(self) -> str:
-        return (
-            "Eres un asistente de oficina para un estudio jurídico chileno. "
-            "Genera textos breves, claros y profesionales en español. "
-            "Sé conciso: máximo 5 líneas por respuesta."
-        )
-
-    def _call(self, user_message: str, max_tokens: int = 512) -> str:
-        response = self.client.chat.completions.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            messages=[
-                {"role": "system", "content": self._system_prompt()},
-                {"role": "user", "content": user_message},
-            ],
-        )
-        return response.choices[0].message.content
-
-    def draft_email(self, context: str) -> dict:
-        prompt = f"Redacta un email breve y profesional de respuesta. Contexto: {context[:500]}"
-        return {"draft": self._call(prompt), "confidence": 0.75, "sources": []}
-
-    def draft_proposal(self, context: str) -> dict:
-        prompt = f"Redacta una propuesta breve de servicios jurídicos. Contexto: {context[:500]}"
-        return {"draft": self._call(prompt), "confidence": 0.70, "sources": []}
-
-    def summarize_matter(self, context: str) -> dict:
-        prompt = f"Resume brevemente este caso legal en 5 líneas: {context[:500]}"
-        return {"summary": self._call(prompt), "confidence": 0.70, "sources": [], "next_steps": []}
-
-    def ask(self, question: str, context: str) -> dict:
-        prompt = f"Pregunta: {question}"
-        if context:
-            prompt = f"Contexto: {context[:500]}\n\nPregunta: {question}"
-        return {"answer": self._call(prompt), "confidence": 0.70, "sources": []}
-
-
-# ── Provider Factory ──────────────────────────────────────────────────────────
 
 def get_ai_provider(tier: str = "default") -> AIProvider:
     """
-    Get AI provider by tier:
-      - "default" / "standard": Claude Sonnet 4.6 (general purpose)
-      - "heavy" / "complex":    GPT o3 (complex legal analysis)
-      - "light" / "agent":      Kimi (simple agent tasks)
-
-    Falls back through the chain: requested → Claude → Kimi → Mock
+    Returns ClaudeProvider if ANTHROPIC_API_KEY is set, MockAIProvider otherwise.
+    The `tier` parameter is accepted for backward compatibility but ignored —
+    Claude handles everything.
     """
+    global _cached_provider
+
+    if _cached_provider is not None:
+        return _cached_provider
+
     from app.core.config import settings
+    api_key = getattr(settings, "ANTHROPIC_API_KEY", "")
 
-    anthropic_key = getattr(settings, "ANTHROPIC_API_KEY", "")
-    openai_key = getattr(settings, "OPENAI_API_KEY", "")
-    kimi_key = getattr(settings, "KIMI_API_KEY", "")
-
-    # ── Heavy tier: GPT for complex analysis ──
-    if tier in ("heavy", "complex"):
-        if openai_key:
-            try:
-                return OpenAIProvider(openai_key)
-            except Exception as exc:
-                logger.warning("OpenAI provider failed, falling back: %s", exc)
-        # Fallback to Claude for heavy tasks
-        if anthropic_key:
-            try:
-                return AnthropicProvider(anthropic_key)
-            except Exception as exc:
-                logger.warning("Anthropic fallback failed: %s", exc)
-        return MockAIProvider()
-
-    # ── Light tier: Claude for agent tasks (fast + reliable) ──
-    # Kimi/Moonshot API is unreachable from most networks, so Claude is primary
-    if tier in ("light", "agent"):
-        if anthropic_key:
-            try:
-                return AnthropicProvider(anthropic_key)
-            except Exception as exc:
-                logger.warning("Anthropic provider failed for light tier: %s", exc)
-        if kimi_key:
-            try:
-                return KimiProvider(kimi_key)
-            except Exception as exc:
-                logger.warning("Kimi fallback failed: %s", exc)
-        return MockAIProvider()
-
-    # ── Default tier: Claude Sonnet 4.6 ──
-    if anthropic_key:
+    if api_key:
         try:
-            return AnthropicProvider(anthropic_key)
+            _cached_provider = ClaudeProvider(api_key)
+            logger.info("AI Provider: Claude Sonnet activated")
+            return _cached_provider
         except Exception as exc:
-            logger.warning("Anthropic provider failed, falling back: %s", exc)
+            logger.error("Failed to initialize Claude provider: %s", exc)
 
-    # Final fallback: Kimi → Mock
-    if kimi_key:
-        try:
-            return KimiProvider(kimi_key)
-        except Exception as exc:
-            logger.warning("Kimi fallback failed: %s", exc)
-
-    return MockAIProvider()
+    logger.warning("AI Provider: using MockAIProvider (no ANTHROPIC_API_KEY)")
+    _cached_provider = MockAIProvider()
+    return _cached_provider

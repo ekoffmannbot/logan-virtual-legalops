@@ -17,8 +17,8 @@ def chat(
     action: Optional[str],
     org_id: int,
 ) -> AIResponse:
-    """General chat endpoint using Claude (default tier)."""
-    provider = get_ai_provider("default")
+    """General chat — Claude."""
+    provider = get_ai_provider()
     context = ""
     if matter_id:
         context = _build_matter_context(db, matter_id, org_id)
@@ -32,8 +32,8 @@ def draft_email(
     context: Optional[str],
     org_id: int,
 ) -> AIResponse:
-    """Draft an email using Claude (default tier)."""
-    provider = get_ai_provider("default")
+    """Draft an email — Claude."""
+    provider = get_ai_provider()
     resolved_context = context or ""
     if matter_id:
         resolved_context = _build_matter_context(db, matter_id, org_id)
@@ -47,8 +47,8 @@ def draft_proposal(
     context: Optional[str],
     org_id: int,
 ) -> AIResponse:
-    """Draft a proposal using GPT (heavy tier) for deeper analysis."""
-    provider = get_ai_provider("heavy")
+    """Draft a proposal — Claude."""
+    provider = get_ai_provider()
     resolved_context = context or ""
     if matter_id:
         resolved_context = _build_matter_context(db, matter_id, org_id)
@@ -61,8 +61,8 @@ def summarize_case(
     matter_id: int,
     org_id: int,
 ) -> AIResponse:
-    """Summarize/analyze a matter using GPT (heavy tier) for deep legal analysis."""
-    provider = get_ai_provider("heavy")
+    """Analyze a matter — Claude."""
+    provider = get_ai_provider()
     context = _build_matter_context(db, matter_id, org_id)
     result = provider.summarize_matter(context)
     return AIResponse(response=result.get("summary", str(result)))
