@@ -19,7 +19,7 @@ def _ai_draft(prompt: str, fallback: str) -> str:
     """Call AI provider with graceful fallback to rule-based text."""
     try:
         from app.modules.ai_assistant.provider import get_ai_provider
-        provider = get_ai_provider("light")
+        provider = get_ai_provider()
         result = provider.ask(prompt, "")
         return result.get("answer", fallback)
     except Exception as exc:
