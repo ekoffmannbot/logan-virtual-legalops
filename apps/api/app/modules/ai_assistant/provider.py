@@ -130,7 +130,7 @@ class AnthropicProvider:
 class OpenAIProvider:
     """Heavy-duty AI provider for complex legal analysis using GPT."""
 
-    def __init__(self, api_key: str, model: str = "o3"):
+    def __init__(self, api_key: str, model: str = "gpt-4o"):
         from openai import OpenAI
         self.client = OpenAI(api_key=api_key)
         self.model = model
@@ -285,19 +285,19 @@ def get_ai_provider(tier: str = "default") -> AIProvider:
                 logger.warning("Anthropic fallback failed: %s", exc)
         return MockAIProvider()
 
-    # ── Light tier: Kimi for simple agent tasks ──
+    # ── Light tier: Claude for agent tasks (fast + reliable) ──
+    # Kimi/Moonshot API is unreachable from most networks, so Claude is primary
     if tier in ("light", "agent"):
-        if kimi_key:
-            try:
-                return KimiProvider(kimi_key)
-            except Exception as exc:
-                logger.warning("Kimi provider failed, falling back: %s", exc)
-        # Fallback to Claude for light tasks (still better than mock)
         if anthropic_key:
             try:
                 return AnthropicProvider(anthropic_key)
             except Exception as exc:
-                logger.warning("Anthropic fallback failed: %s", exc)
+                logger.warning("Anthropic provider failed for light tier: %s", exc)
+        if kimi_key:
+            try:
+                return KimiProvider(kimi_key)
+            except Exception as exc:
+                logger.warning("Kimi fallback failed: %s", exc)
         return MockAIProvider()
 
     # ── Default tier: Claude Sonnet 4.6 ──
