@@ -61,33 +61,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for demo session first
+    // Priority: real JWT token > demo session
+    const token = getToken();
+    if (token) {
+      api
+        .get<User>("/auth/me")
+        .then((userData) => {
+          // Real token works — clear any stale demo session
+          localStorage.removeItem("demo_user");
+          setUser(userData);
+        })
+        .catch(() => {
+          clearTokens();
+          // Fall back to demo user if available
+          const demoUser = localStorage.getItem("demo_user");
+          if (demoUser) {
+            try { setUser(JSON.parse(demoUser)); } catch { /* ignore */ }
+          } else {
+            setUser(null);
+          }
+        })
+        .finally(() => setIsLoading(false));
+      return;
+    }
+
+    // No real token — check demo session
     const demoUser = localStorage.getItem("demo_user");
     if (demoUser) {
       try {
         setUser(JSON.parse(demoUser));
       } catch { /* ignore */ }
-      setIsLoading(false);
-      return;
     }
-
-    const token = getToken();
-    if (token) {
-      api
-        .get<User>("/auth/me")
-        .then(setUser)
-        .catch(() => {
-          clearTokens();
-          setUser(null);
-        })
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
+    setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Demo user — instant login, no backend needed
+    // Always try real backend first
+    const formData = new URLSearchParams();
+    formData.append("username", email);
+    formData.append("password", password);
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"}/auth/login`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: formData,
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setTokens(data.access_token, data.refresh_token);
+        // Clear any previous demo session so API calls go to real backend
+        localStorage.removeItem("demo_user");
+        const userData = await api.get<User>("/auth/me");
+        setUser(userData);
+        window.location.href = "/dashboard";
+        return;
+      }
+    } catch {
+      // Backend unreachable — fall through to demo mode
+      console.warn("Backend unreachable, trying demo mode...");
+    }
+
+    // Fallback: demo user only if backend is down
     const demoUser = DEMO_USERS[email];
     if (demoUser && password === "logan2024") {
       localStorage.setItem("demo_user", JSON.stringify(demoUser));
@@ -96,29 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Real backend login
-    const formData = new URLSearchParams();
-    formData.append("username", email);
-    formData.append("password", password);
-
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"}/auth/login`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: formData,
-      }
-    );
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || "Credenciales inválidas");
-    }
-
-    const data = await res.json();
-    setTokens(data.access_token, data.refresh_token);
-    const userData = await api.get<User>("/auth/me");
-    setUser(userData);
+    throw new Error("Credenciales inválidas");
   };
 
   const logout = () => {

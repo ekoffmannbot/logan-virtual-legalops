@@ -53,8 +53,9 @@ async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  // Demo mode: return mock data instead of calling backend
-  if (isDemoMode()) {
+  // Demo mode: return mock data ONLY if no real JWT token exists
+  // When user authenticated via real backend, always use real API
+  if (isDemoMode() && !getToken()) {
     const method = (options.method || "GET").toUpperCase();
     if (method === "GET") {
       const mock = getMockData(path);
@@ -77,7 +78,9 @@ async function apiRequest<T>(
     if (!(options.body instanceof FormData)) {
       headers["Content-Type"] = "application/json";
     }
-    return fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+    // Ensure trailing slash for FastAPI compatibility (avoids 307 redirects)
+    const normalizedPath = path.endsWith("/") || path.includes("?") ? path : `${path}/`;
+    return fetch(`${API_BASE_URL}${normalizedPath}`, { ...options, headers });
   };
 
   let res = await makeRequest(token);

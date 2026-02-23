@@ -55,4 +55,9 @@ celery_app.conf.beat_schedule["daily-digest-20h"] = {
     "schedule": crontab(hour=20, minute=0),
 }
 
-celery_app.autodiscover_tasks(["app.tasks"])
+# Explicit imports so the worker registers all tasks
+import app.tasks.proposal_tasks  # noqa: F401
+import app.tasks.sla_tasks  # noqa: F401
+import app.tasks.collection_tasks  # noqa: F401
+import app.tasks.notary_tasks  # noqa: F401
+import app.tasks.digest_tasks  # noqa: F401
