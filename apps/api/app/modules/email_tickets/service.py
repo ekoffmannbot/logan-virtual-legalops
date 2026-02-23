@@ -441,11 +441,27 @@ def send_email(
     ticket.last_outbound_sent_at = datetime.now(timezone.utc)
     ticket.notes = data.body
 
+    # Actually send the email via SMTP
+    from app.core.email import send_email as smtp_send
+    smtp_sent = False
+    try:
+        smtp_sent = smtp_send(
+            to=ticket.from_email,
+            subject=f"Re: {ticket.subject}",
+            body_html=data.body,
+            reply_to=getattr(current_user, "email", None),
+        )
+    except Exception:
+        pass  # Don't block DB transition if SMTP fails
+
     _log_action(
         db, ticket, "send",
         current_user,
         before={"status": old_status if isinstance(old_status, str) else old_status.value},
-        after={"status": EmailTicketStatusEnum.SENT.value, "detail": "Email enviado"},
+        after={
+            "status": EmailTicketStatusEnum.SENT.value,
+            "detail": "Email enviado" + (" via SMTP" if smtp_sent else " (solo DB, SMTP falló)"),
+        },
     )
 
     db.commit()

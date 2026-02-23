@@ -49,4 +49,10 @@ from celery.schedules import crontab
 celery_app.conf.beat_schedule["generate-collection-reminders-daily"]["schedule"] = crontab(hour=7, minute=0)
 celery_app.conf.beat_schedule["generate-notary-contact-tasks-daily"]["schedule"] = crontab(hour=9, minute=0)
 
+# Daily digest with AI summary + email to managers
+celery_app.conf.beat_schedule["daily-digest-20h"] = {
+    "task": "app.tasks.digest_tasks.daily_digest",
+    "schedule": crontab(hour=20, minute=0),
+}
+
 celery_app.autodiscover_tasks(["app.tasks"])

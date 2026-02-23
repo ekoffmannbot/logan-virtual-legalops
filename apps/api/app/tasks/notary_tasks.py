@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone, timedelta
 
 from app.tasks.celery_app import celery_app
@@ -8,6 +9,20 @@ from app.db.models.audit_log import AuditLog
 from app.db.enums import (
     NotaryDocStatusEnum, TaskTypeEnum, TaskStatusEnum, SLAPolicyEnum,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _ai_draft(prompt: str, fallback: str) -> str:
+    """Call AI provider with graceful fallback to rule-based text."""
+    try:
+        from app.modules.ai_assistant.provider import get_ai_provider
+        provider = get_ai_provider()
+        result = provider.ask(prompt, "")
+        return result.get("answer", fallback)
+    except Exception as exc:
+        logger.warning("AI draft failed, using fallback: %s", exc)
+        return fallback
 
 
 @celery_app.task(name="app.tasks.notary_tasks.generate_notary_contact_tasks")
@@ -30,6 +45,15 @@ def generate_notary_contact_tasks():
         contact_hours = [10, 13, 17]
 
         for doc in docs_pending_contact:
+            # Generate AI call script once per document
+            fallback_script = f"Intentar contacto con cliente para documento notarial. Horario programado."
+            ai_script = _ai_draft(
+                f"Genera un guion breve (3-4 lineas) para llamar a un cliente sobre un documento notarial "
+                f"(documento #{doc.id}, tipo: {doc.document_type if hasattr(doc, 'document_type') else 'notarial'}). "
+                f"El objetivo es coordinar la firma o entrega. Tono profesional y amable.",
+                fallback_script,
+            )
+
             for hour in contact_hours:
                 due_time = datetime(
                     today.year, today.month, today.day,
@@ -54,7 +78,7 @@ def generate_notary_contact_tasks():
                     task = Task(
                         organization_id=doc.organization_id,
                         title=f"Contactar cliente - Doc. notarial #{doc.id} ({hour}:00)",
-                        description=f"Intentar contacto con cliente para documento notarial. Horario: {hour}:00",
+                        description=ai_script,
                         entity_type="notary_document",
                         entity_id=doc.id,
                         task_type=TaskTypeEnum.NOTARY_CONTACT,
@@ -72,6 +96,7 @@ def generate_notary_contact_tasks():
                         after_json={
                             "agent": "Procurador",
                             "detail": f"Tarea de contacto notarial creada para documento #{doc.id}",
+                            "detail_long": ai_script,
                             "status": "completed",
                             "type": "info",
                         },

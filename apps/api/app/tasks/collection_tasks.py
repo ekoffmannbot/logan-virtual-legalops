@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone, timedelta
 
 from app.tasks.celery_app import celery_app
@@ -10,6 +11,20 @@ from app.db.enums import (
     InvoiceStatusEnum, CollectionCaseStatusEnum,
     TaskTypeEnum, TaskStatusEnum, SLAPolicyEnum,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _ai_draft(prompt: str, fallback: str) -> str:
+    """Call AI provider with graceful fallback to rule-based text."""
+    try:
+        from app.modules.ai_assistant.provider import get_ai_provider
+        provider = get_ai_provider()
+        result = provider.ask(prompt, "")
+        return result.get("answer", fallback)
+    except Exception as exc:
+        logger.warning("AI draft failed, using fallback: %s", exc)
+        return fallback
 
 
 @celery_app.task(name="app.tasks.collection_tasks.generate_collection_reminders")
@@ -44,10 +59,19 @@ def generate_collection_reminders():
                 .first()
             )
             if not existing:
+                # AI-generated personalized collection message
+                fallback_desc = f"Contactar cliente. Monto: ${invoice.amount:,} CLP. Vencimiento: {invoice.due_date}"
+                ai_desc = _ai_draft(
+                    f"Redacta un mensaje breve y profesional de cobranza preventiva para un cliente. "
+                    f"La factura #{invoice.id} por ${invoice.amount:,} CLP vence en 5 días ({invoice.due_date}). "
+                    f"Tono cordial pero firme. Máximo 3 líneas.",
+                    fallback_desc,
+                )
+
                 task = Task(
                     organization_id=invoice.organization_id,
-                    title=f"Cobranza preventiva - Factura #{invoice.id} vence en 5 días",
-                    description=f"Contactar cliente. Monto: ${invoice.amount:,} CLP. Vencimiento: {invoice.due_date}",
+                    title=f"Cobranza preventiva - Factura #{invoice.id} vence en 5 dias",
+                    description=ai_desc,
                     entity_type="invoice",
                     entity_id=invoice.id,
                     task_type=TaskTypeEnum.COLLECTION_REMINDER,
@@ -65,6 +89,7 @@ def generate_collection_reminders():
                     after_json={
                         "agent": "Jefe Cobranza",
                         "detail": f"Recordatorio de cobro creado para factura #{invoice.id}",
+                        "detail_long": ai_desc,
                         "status": "completed",
                         "type": "info",
                     },
@@ -109,6 +134,13 @@ def generate_collection_reminders():
         for invoice in overdue:
             invoice.status = InvoiceStatusEnum.OVERDUE
             invoice.updated_at = now
+
+            ai_escalation = _ai_draft(
+                f"La factura #{invoice.id} por ${invoice.amount:,} CLP esta morosa (vencio el {invoice.due_date}). "
+                f"Recomienda una estrategia de escalamiento en 2 lineas.",
+                f"Factura #{invoice.id} marcada como morosa. Requiere escalamiento.",
+            )
+
             db.add(AuditLog(
                 organization_id=invoice.organization_id,
                 actor_user_id=None,
@@ -118,8 +150,10 @@ def generate_collection_reminders():
                 after_json={
                     "agent": "Jefe Cobranza",
                     "detail": f"Factura #{invoice.id} marcada como morosa",
-                    "status": "completed",
+                    "detail_long": ai_escalation,
+                    "status": "pending_approval",
                     "type": "warning",
+                    "action_required": True,
                 },
             ))
 
