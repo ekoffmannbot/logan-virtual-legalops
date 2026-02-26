@@ -20,6 +20,7 @@ class AuditLog(Base):
     before_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     after_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     ip: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    agent_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("ai_agents.id"), nullable=True, index=True)
     user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True

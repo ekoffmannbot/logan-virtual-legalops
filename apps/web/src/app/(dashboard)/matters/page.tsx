@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { InboxItem } from "@/components/shared/inbox-item";
 import { Drawer, useDrawer } from "@/components/layout/drawer";
@@ -9,7 +9,7 @@ import { PizzaTracker } from "@/components/shared/pizza-tracker";
 import { getProcessProgress } from "@/lib/process-status-map";
 import { MATTER_TYPE_LABELS } from "@/lib/constants";
 import { causasJPLProcess } from "@/lib/process-definitions";
-import { Briefcase, Loader2, AlertCircle, Calendar, Scale } from "lucide-react";
+import { Briefcase, Loader2, AlertCircle, Calendar, Scale, Plus } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
@@ -37,10 +37,10 @@ interface Matter {
 
 const TYPE_FILTERS = ["Todos", "Civiles", "JPL", "Otros"] as const;
 
-const TYPE_BADGE_COLORS: Record<string, string> = {
-  civil: "bg-blue-100 text-blue-800",
-  jpl: "bg-purple-100 text-purple-800",
-  other: "bg-gray-100 text-gray-700",
+const TYPE_BADGE_STYLES: Record<string, { bg: string; color: string }> = {
+  civil: { bg: "rgba(99,102,241,0.15)", color: "var(--primary-color)" },
+  jpl: { bg: "rgba(168,85,247,0.15)", color: "#a855f7" },
+  other: { bg: "rgba(100,116,139,0.15)", color: "var(--text-muted)" },
 };
 
 function getTypeLabel(type: string): string {
@@ -273,20 +273,31 @@ export default function MattersPage() {
   return (
     <div className="space-y-6">
       {/* ---- HEADER ---- */}
-      <div className="flex items-center gap-3">
-        <Briefcase className="h-6 w-6" style={{ color: "var(--text-primary)" }} />
-        <h1
-          className="text-2xl font-bold"
-          style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Briefcase className="h-6 w-6" style={{ color: "var(--text-primary)" }} />
+          <h1
+            className="text-2xl font-bold"
+            style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+          >
+            Casos Activos
+          </h1>
+          <span
+            className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full px-2 font-semibold"
+            style={{ fontSize: "13px", background: "var(--bg-tertiary)", color: "var(--text-muted)" }}
+          >
+            {matters.length}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => openDrawer("Nuevo Caso", <CreateMatterForm onSuccess={closeDrawer} />)}
+          className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90"
+          style={{ background: "var(--primary-color)" }}
         >
-          Casos Activos
-        </h1>
-        <span
-          className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full px-2 font-semibold"
-          style={{ fontSize: "13px", background: "var(--bg-tertiary)", color: "var(--text-muted)" }}
-        >
-          {matters.length}
-        </span>
+          <Plus className="h-4 w-4" />
+          Nuevo Caso
+        </button>
       </div>
 
       {/* ---- FILTER CHIPS ---- */}
@@ -321,12 +332,12 @@ export default function MattersPage() {
               key={m.id}
               id={String(m.id)}
               icon={<Briefcase className="h-5 w-5" />}
-              iconBg="bg-blue-100"
-              iconColor="text-blue-600"
+              iconBg="rgba(99,102,241,0.15)"
+              iconColor="var(--primary-color)"
               title={m.title}
               subtitle={`${m.client_name} · ${m.court || "Sin tribunal"}`}
               badge={getTypeLabel(m.type)}
-              badgeColor={TYPE_BADGE_COLORS[m.type] || "bg-gray-100 text-gray-700"}
+              badgeColor={TYPE_BADGE_STYLES[m.type]?.bg || "var(--bg-tertiary)"}
               timeText={getHearingTimeText(m)}
               timeUrgent={isHearingUrgent(m)}
               actionLabel="Ver Caso"
@@ -342,6 +353,126 @@ export default function MattersPage() {
         {drawerContent}
       </Drawer>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Create Matter Form                                                   */
+/* ------------------------------------------------------------------ */
+
+const MATTER_TYPES = [
+  { value: "civil", label: "Civil" },
+  { value: "jpl", label: "JPL" },
+  { value: "other", label: "Otro" },
+];
+
+function CreateMatterForm({ onSuccess }: { onSuccess: () => void }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({
+    title: "",
+    client_id: "",
+    matter_type: "civil",
+    description: "",
+  });
+
+  const mutation = useMutation({
+    mutationFn: (body: { title: string; client_id: number; matter_type: string; description?: string }) =>
+      api.post("/matters", body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["matters"] });
+      onSuccess();
+    },
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.title.trim() || !form.client_id) return;
+    mutation.mutate({
+      title: form.title,
+      client_id: parseInt(form.client_id, 10),
+      matter_type: form.matter_type,
+      description: form.description || undefined,
+    });
+  }
+
+  const inputStyle = {
+    background: "var(--bg-tertiary)",
+    color: "var(--text-primary)",
+    border: "1px solid var(--glass-border)",
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
+          Titulo del caso *
+        </label>
+        <input
+          type="text"
+          value={form.title}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+          className="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+          style={inputStyle}
+          placeholder="Ej: Cobro de pesos Martinez"
+          required
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
+            ID Cliente *
+          </label>
+          <input
+            type="number"
+            value={form.client_id}
+            onChange={(e) => setForm({ ...form, client_id: e.target.value })}
+            className="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+            style={inputStyle}
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
+            Tipo
+          </label>
+          <select
+            value={form.matter_type}
+            onChange={(e) => setForm({ ...form, matter_type: e.target.value })}
+            className="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+            style={inputStyle}
+          >
+            {MATTER_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
+          Descripcion
+        </label>
+        <textarea
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          rows={3}
+          className="w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-y"
+          style={inputStyle}
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={mutation.isPending || !form.title.trim() || !form.client_id}
+        className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+        style={{ background: "var(--primary-color)" }}
+      >
+        {mutation.isPending ? "Creando..." : "Crear Caso"}
+      </button>
+      {mutation.isError && (
+        <p className="text-xs text-center" style={{ color: "var(--danger)" }}>
+          Error al crear el caso. Intente nuevamente.
+        </p>
+      )}
+    </form>
   );
 }
 

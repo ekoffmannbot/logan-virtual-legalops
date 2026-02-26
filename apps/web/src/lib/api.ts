@@ -1,4 +1,11 @@
-import { isDemoMode, getMockData, getMockMutationResponse } from "./mock-data";
+import type {
+  AIAgent,
+  AIAgentSkill,
+  AIAgentTask,
+  AgentConversationMessage,
+  AgentCostSummary,
+  AgentExecuteResponse,
+} from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
@@ -53,19 +60,6 @@ async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  // Demo mode: return mock data ONLY if no real JWT token exists
-  // When user authenticated via real backend, always use real API
-  if (isDemoMode() && !getToken()) {
-    const method = (options.method || "GET").toUpperCase();
-    if (method === "GET") {
-      const mock = getMockData(path);
-      if (mock !== null) return mock as T;
-    } else {
-      const mock = getMockMutationResponse(path, method);
-      if (mock !== null) return mock as T;
-    }
-  }
-
   let token = getToken();
 
   const makeRequest = async (authToken: string | null) => {
@@ -93,7 +87,7 @@ async function apiRequest<T>(
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       }
-      throw new ApiError(401, "Sesión expirada");
+      throw new ApiError(401, "Sesi\u00f3n expirada");
     }
   }
 
@@ -125,5 +119,44 @@ export const api = {
   upload: <T>(path: string, formData: FormData) =>
     apiRequest<T>(path, { method: "POST", body: formData }),
 };
+
+/* ------------------------------------------------------------------ */
+/* Agent-specific API helpers                                          */
+/* ------------------------------------------------------------------ */
+
+export const agentApi = {
+  list: () => api.get<AIAgent[]>("/agents"),
+  get: (id: number) => api.get<AIAgent>(`/agents/${id}`),
+  update: (id: number, body: Partial<AIAgent>) =>
+    api.patch<AIAgent>(`/agents/${id}`, body),
+  updateSkill: (agentId: number, skillId: number, body: Partial<AIAgentSkill>) =>
+    api.patch<AIAgentSkill>(`/agents/${agentId}/skills/${skillId}`, body),
+  execute: (id: number, message: string, threadId?: string) =>
+    api.post<AgentExecuteResponse>(`/agents/${id}/execute`, {
+      message,
+      thread_id: threadId,
+    }),
+  tasks: (id: number, limit = 50) =>
+    api.get<AIAgentTask[]>(`/agents/${id}/tasks?limit=${limit}`),
+  conversations: (id: number, threadId?: string) =>
+    api.get<AgentConversationMessage[]>(
+      `/agents/${id}/conversations${threadId ? `?thread_id=${threadId}` : ""}`
+    ),
+  costs: (id: number) => api.get<AgentCostSummary>(`/agents/${id}/costs`),
+  runWorkflow: (key: string, context?: Record<string, unknown>) =>
+    api.post(`/agents/workflows/${key}`, { context }),
+};
+
+/* ------------------------------------------------------------------ */
+/* WebSocket helper                                                    */
+/* ------------------------------------------------------------------ */
+
+export function createAgentWs(agentId: number): WebSocket | null {
+  const token = getToken();
+  if (!token) return null;
+  const wsBase = (process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000")
+    .replace(/^http/, "ws");
+  return new WebSocket(`${wsBase}/ws/chat/${agentId}?token=${token}`);
+}
 
 export { ApiError, setTokens, clearTokens, getToken };

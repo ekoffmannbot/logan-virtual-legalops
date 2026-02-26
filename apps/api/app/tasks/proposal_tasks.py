@@ -11,23 +11,13 @@ from app.db.enums import ProposalStatusEnum, TaskTypeEnum, TaskStatusEnum, SLAPo
 logger = logging.getLogger(__name__)
 
 
-def _ai_draft(prompt: str, fallback: str) -> str:
-    """Call AI provider with graceful fallback to rule-based text."""
-    try:
-        from app.modules.ai_assistant.provider import get_ai_provider
-        provider = get_ai_provider()
-        result = provider.ask(prompt, "")
-        return result.get("answer", fallback)
-    except Exception as exc:
-        logger.warning("AI draft failed, using fallback: %s", exc)
-        return fallback
-
-
 @celery_app.task(name="app.tasks.proposal_tasks.expire_proposals")
 def expire_proposals():
     """Mark proposals as expired if past expires_at and still in sent status."""
     db = SessionLocal()
     try:
+        from app.core.agent_dispatch import get_agent_id
+
         now = datetime.now(timezone.utc)
         expired = (
             db.query(Proposal)
@@ -45,14 +35,14 @@ def expire_proposals():
             db.add(AuditLog(
                 organization_id=proposal.organization_id,
                 actor_user_id=None,
+                agent_id=get_agent_id(db, proposal.organization_id, "secretaria"),
                 action="auto:proposal_expired",
                 entity_type="proposal",
                 entity_id=proposal.id,
                 after_json={
                     "agent": "Secretaria",
                     "detail": f"Propuesta #{proposal.id} marcada como expirada automaticamente",
-                    "status": "completed",
-                    "type": "info",
+                    "status": "completed", "type": "info",
                 },
             ))
             count += 1
@@ -67,6 +57,8 @@ def create_followup_tasks():
     """Create follow-up tasks for proposals sent 72h ago without follow-up."""
     db = SessionLocal()
     try:
+        from app.core.agent_dispatch import agent_draft, get_agent_id
+
         now = datetime.now(timezone.utc)
         proposals = (
             db.query(Proposal)
@@ -90,14 +82,14 @@ def create_followup_tasks():
                 .first()
             )
             if not existing_task:
-                # AI-generated follow-up message
                 fallback_desc = "Contactar cliente para verificar recepcion y lectura de propuesta"
-                ai_desc = _ai_draft(
+                ai_desc = agent_draft(
+                    db, proposal.organization_id, "secretaria",
                     f"Redacta un mensaje breve de seguimiento para una propuesta de servicios juridicos "
                     f"enviada hace 72 horas (propuesta #{proposal.id}, monto ${proposal.amount:,} CLP). "
                     f"El objetivo es verificar que el cliente la recibio y resolver dudas. "
                     f"Tono cordial y profesional. Maximo 3 lineas.",
-                    fallback_desc,
+                    fallback_desc, task_type="proposal_followup",
                 )
 
                 task = Task(
@@ -115,6 +107,7 @@ def create_followup_tasks():
                 db.add(AuditLog(
                     organization_id=proposal.organization_id,
                     actor_user_id=None,
+                    agent_id=get_agent_id(db, proposal.organization_id, "secretaria"),
                     action="auto:proposal_followup_created",
                     entity_type="proposal",
                     entity_id=proposal.id,
@@ -122,8 +115,7 @@ def create_followup_tasks():
                         "agent": "Secretaria",
                         "detail": f"Seguimiento 72h creado para propuesta #{proposal.id}",
                         "detail_long": ai_desc,
-                        "status": "completed",
-                        "type": "info",
+                        "status": "completed", "type": "info",
                     },
                 ))
                 count += 1

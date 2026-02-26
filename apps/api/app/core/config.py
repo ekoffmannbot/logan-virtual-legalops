@@ -29,8 +29,13 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "Logan Virtual"
 
     # Storage
-    STORAGE_BACKEND: str = "local"
+    STORAGE_BACKEND: str = "local"  # "local" or "s3"
     STORAGE_LOCAL_PATH: str = "/app/storage"
+    S3_BUCKET_NAME: str = ""
+    S3_REGION: str = "us-east-1"
+    S3_ACCESS_KEY: str = ""
+    S3_SECRET_KEY: str = ""
+    S3_ENDPOINT_URL: str = ""  # For MinIO compatibility
 
     # AI
     AI_PROVIDER: str = "mock"
@@ -40,12 +45,27 @@ class Settings(BaseSettings):
     KIMI_MODEL: str = "moonshot-v1-8k"
     GEMINI_API_KEY: str = ""
     BRAVE_SEARCH_API_KEY: str = ""
-    OPENAI_MODEL: str = "o3"
+    OPENAI_MODEL: str = "gpt-4o"
+
+    # Agent Runtime
+    ANTHROPIC_OPUS_MODEL: str = "claude-opus-4-20250514"
+    ANTHROPIC_SONNET_MODEL: str = "claude-sonnet-4-20250514"
+    AGENT_MAX_TOOL_ITERATIONS: int = 10
+    AGENT_MAX_RETRIES: int = 3
+    AGENT_ESCALATION_THRESHOLD: int = 3
+    AGENT_RUNTIME_TIMEOUT: int = 120  # seconds
+    AGENT_MAX_TOOL_RESULT_CHARS: int = 4000
 
     # Scraper
     SCRAPER_USER_AGENT: str = "LoganVirtual/1.0"
     SCRAPER_RATE_LIMIT_SECONDS: float = 1.0
     SCRAPER_MODE: str = "mock"
+
+    # CORS
+    CORS_ORIGINS: str = ""
+
+    # Sentry (error tracking)
+    SENTRY_DSN: str = ""
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

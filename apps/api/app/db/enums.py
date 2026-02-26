@@ -231,3 +231,28 @@ class ScraperJobStatusEnum(str, enum.Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+# ── AI Agent Enums ──────────────────────────────────────────────────────────
+
+
+class AgentTaskStatusEnum(str, enum.Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    ESCALATED = "escalated"
+
+
+class AgentTaskTriggerEnum(str, enum.Enum):
+    SCHEDULED = "scheduled"
+    EVENT = "event"
+    MANUAL = "manual"
+    AGENT_REQUEST = "agent_request"
+
+
+class AgentMessageRoleEnum(str, enum.Enum):
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    TOOL = "tool"

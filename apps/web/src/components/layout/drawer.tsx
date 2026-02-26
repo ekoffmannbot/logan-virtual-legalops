@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 interface DrawerProps {
   open: boolean;
   onClose: () => void;
-  title: string;
+  title: React.ReactNode;
   children: React.ReactNode;
   width?: string;
 }
@@ -77,7 +77,7 @@ export function Drawer({
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={typeof title === "string" ? title : "Panel"}
         className={cn(
           "absolute right-0 top-0 h-full flex flex-col",
           "transition-transform duration-300 ease-out",

@@ -52,16 +52,10 @@ const FILTER_CHIPS: { key: FilterKey; label: string }[] = [
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-const URGENCY_ICON_BG: Record<string, string> = {
-  urgent: "bg-red-100",
-  warning: "bg-yellow-100",
-  normal: "bg-blue-100",
-};
-
-const URGENCY_ICON_COLOR: Record<string, string> = {
-  urgent: "text-red-600",
-  warning: "text-yellow-600",
-  normal: "text-blue-600",
+const URGENCY_ICON_STYLES: Record<string, { bg: string; color: string }> = {
+  urgent: { bg: "rgba(239,68,68,0.15)", color: "var(--danger)" },
+  warning: { bg: "rgba(245,158,11,0.15)", color: "var(--warning)" },
+  normal: { bg: "rgba(99,102,241,0.15)", color: "var(--primary-color)" },
 };
 
 /** Checks if an SLA deadline is within 6 hours or already passed. */
@@ -248,12 +242,12 @@ export default function EmailTicketsPage() {
                 key={ticket.id}
                 id={String(ticket.id)}
                 icon={<Mail className="h-5 w-5" />}
-                iconBg={URGENCY_ICON_BG[urgency] || "bg-blue-100"}
-                iconColor={URGENCY_ICON_COLOR[urgency] || "text-blue-600"}
+                iconBg={URGENCY_ICON_STYLES[urgency]?.bg || "rgba(99,102,241,0.15)"}
+                iconColor={URGENCY_ICON_STYLES[urgency]?.color || "var(--primary-color)"}
                 title={ticket.subject}
                 subtitle={`${ticket.from_name} \u00B7 ${ticket.matter_title || "Sin caso asociado"}`}
                 badge={EMAIL_TICKET_STATUS_LABELS[ticket.status] || ticket.status}
-                badgeColor={STATUS_COLORS[ticket.status] || "bg-gray-100 text-gray-700"}
+                badgeColor="var(--bg-tertiary)"
                 timeText={timeText}
                 timeUrgent={urgency === "urgent"}
                 actionLabel={getNextActionLabel(ticket.process_id, ticket.status)}

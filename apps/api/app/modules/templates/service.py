@@ -1,7 +1,10 @@
 from typing import Optional, List
 
+import re
+
 from fastapi import HTTPException
-from jinja2 import Template as Jinja2Template, TemplateSyntaxError, UndefinedError
+from jinja2 import TemplateSyntaxError, UndefinedError
+from jinja2.sandbox import SandboxedEnvironment, SecurityError
 from sqlalchemy.orm import Session
 
 from app.db.models.template import Template
@@ -90,17 +93,25 @@ def delete_template(db: Session, template_id: int, org_id: int) -> None:
     db.commit()
 
 
+_sandbox_env = SandboxedEnvironment(autoescape=True)
+
+
 def render_template(
     db: Session,
     template_id: int,
     variables: dict,
     org_id: int,
 ) -> str:
-    """Render a template's content_text using Jinja2 with the provided variables."""
+    """Render a template's content_text using sandboxed Jinja2 with the provided variables."""
     template = get_template(db, template_id, org_id)
 
+    # Validate variable keys are safe identifiers
+    for key in variables:
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', key):
+            raise HTTPException(status_code=400, detail=f"Nombre de variable inválido: {key}")
+
     try:
-        jinja_tmpl = Jinja2Template(template.content_text)
+        jinja_tmpl = _sandbox_env.from_string(template.content_text)
         rendered = jinja_tmpl.render(**variables)
     except TemplateSyntaxError as e:
         raise HTTPException(
@@ -111,6 +122,11 @@ def render_template(
         raise HTTPException(
             status_code=400,
             detail=f"Variable no definida en la plantilla: {str(e)}",
+        )
+    except SecurityError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Operación no permitida en plantilla: {str(e)}",
         )
 
     return rendered

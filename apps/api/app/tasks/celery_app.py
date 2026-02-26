@@ -55,9 +55,17 @@ celery_app.conf.beat_schedule["daily-digest-20h"] = {
     "schedule": crontab(hour=20, minute=0),
 }
 
+# Agent health check every 5 minutes
+celery_app.conf.beat_schedule["agent-health-check-5min"] = {
+    "task": "app.tasks.agent_health_tasks.agent_health_check",
+    "schedule": 300.0,  # every 5 min
+}
+
 # Explicit imports so the worker registers all tasks
 import app.tasks.proposal_tasks  # noqa: F401
 import app.tasks.sla_tasks  # noqa: F401
 import app.tasks.collection_tasks  # noqa: F401
 import app.tasks.notary_tasks  # noqa: F401
 import app.tasks.digest_tasks  # noqa: F401
+import app.tasks.agent_bus_tasks  # noqa: F401
+import app.tasks.agent_health_tasks  # noqa: F401

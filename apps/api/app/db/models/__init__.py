@@ -18,11 +18,18 @@ from app.db.models.collection_case import CollectionCase
 from app.db.models.document import Document
 from app.db.models.template import Template
 from app.db.models.scraper import ScraperJob, ScraperResult
+from app.db.models.time_entry import TimeEntry
+from app.db.models.notification import Notification
+from app.db.models.ai_agent import AIAgent
+from app.db.models.ai_agent_skill import AIAgentSkill
+from app.db.models.ai_agent_conversation import AIAgentConversation
+from app.db.models.ai_agent_task import AIAgentTask
 
 __all__ = [
     "Organization", "User", "AuditLog", "Lead", "Client", "Matter",
     "Proposal", "Contract", "Mandate", "NotaryDocument", "Deadline",
     "CourtAction", "Task", "Communication", "EmailTicket", "Invoice",
     "Payment", "CollectionCase", "Document", "Template",
-    "ScraperJob", "ScraperResult",
+    "ScraperJob", "ScraperResult", "TimeEntry", "Notification",
+    "AIAgent", "AIAgentSkill", "AIAgentConversation", "AIAgentTask",
 ]

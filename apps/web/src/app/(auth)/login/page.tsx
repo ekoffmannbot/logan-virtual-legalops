@@ -161,20 +161,12 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div
-          className="mt-6 rounded-xl p-3 text-xs"
-          style={{
-            background: "var(--bg-tertiary)",
-            color: "var(--text-muted)",
-          }}
+        <p
+          className="mt-6 text-center text-xs"
+          style={{ color: "var(--text-muted)" }}
         >
-          <p className="mb-1 font-medium" style={{ color: "var(--text-secondary)" }}>
-            Cuentas de demostraci{"\u00f3"}n:
-          </p>
-          <p>admin@logan.cl / logan2024 (Gerente Legal)</p>
-          <p>abogado@logan.cl / logan2024 (Abogado)</p>
-          <p>secretaria@logan.cl / logan2024 (Secretaria)</p>
-        </div>
+          Gerente Legal &middot; 8 agentes IA a tu servicio
+        </p>
       </div>
     </div>
   );

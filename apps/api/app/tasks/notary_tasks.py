@@ -12,17 +12,7 @@ from app.db.enums import (
 
 logger = logging.getLogger(__name__)
 
-
-def _ai_draft(prompt: str, fallback: str) -> str:
-    """Call AI provider with graceful fallback to rule-based text."""
-    try:
-        from app.modules.ai_assistant.provider import get_ai_provider
-        provider = get_ai_provider()
-        result = provider.ask(prompt, "")
-        return result.get("answer", fallback)
-    except Exception as exc:
-        logger.warning("AI draft failed, using fallback: %s", exc)
-        return fallback
+AGENT_ROLE = "procurador"
 
 
 @celery_app.task(name="app.tasks.notary_tasks.generate_notary_contact_tasks")
@@ -30,14 +20,14 @@ def generate_notary_contact_tasks():
     """Create contact attempt tasks at 10:00, 13:00, 17:00 for notary docs pending client contact."""
     db = SessionLocal()
     try:
+        from app.core.agent_dispatch import agent_draft, get_agent_id
+
         now = datetime.now(timezone.utc)
         today = now.date()
 
         docs_pending_contact = (
             db.query(NotaryDocument)
-            .filter(
-                NotaryDocument.status == NotaryDocStatusEnum.CLIENT_CONTACT_PENDING,
-            )
+            .filter(NotaryDocument.status == NotaryDocStatusEnum.CLIENT_CONTACT_PENDING)
             .all()
         )
 
@@ -45,13 +35,13 @@ def generate_notary_contact_tasks():
         contact_hours = [10, 13, 17]
 
         for doc in docs_pending_contact:
-            # Generate AI call script once per document
             fallback_script = f"Intentar contacto con cliente para documento notarial. Horario programado."
-            ai_script = _ai_draft(
+            ai_script = agent_draft(
+                db, doc.organization_id, AGENT_ROLE,
                 f"Genera un guion breve (3-4 lineas) para llamar a un cliente sobre un documento notarial "
-                f"(documento #{doc.id}, tipo: {doc.document_type if hasattr(doc, 'document_type') else 'notarial'}). "
+                f"(documento #{doc.id}, tipo: {doc.doc_type}). "
                 f"El objetivo es coordinar la firma o entrega. Tono profesional y amable.",
-                fallback_script,
+                fallback_script, task_type="notary_contact_script",
             )
 
             for hour in contact_hours:
@@ -59,7 +49,6 @@ def generate_notary_contact_tasks():
                     today.year, today.month, today.day,
                     hour, 0, 0, tzinfo=timezone.utc
                 )
-                # Skip if past this hour today
                 if due_time < now:
                     continue
 
@@ -90,6 +79,7 @@ def generate_notary_contact_tasks():
                     db.add(AuditLog(
                         organization_id=doc.organization_id,
                         actor_user_id=None,
+                        agent_id=get_agent_id(db, doc.organization_id, AGENT_ROLE),
                         action="auto:notary_contact_task_created",
                         entity_type="notary_document",
                         entity_id=doc.id,
@@ -97,8 +87,7 @@ def generate_notary_contact_tasks():
                             "agent": "Procurador",
                             "detail": f"Tarea de contacto notarial creada para documento #{doc.id}",
                             "detail_long": ai_script,
-                            "status": "completed",
-                            "type": "info",
+                            "status": "completed", "type": "info",
                         },
                     ))
                     count += 1

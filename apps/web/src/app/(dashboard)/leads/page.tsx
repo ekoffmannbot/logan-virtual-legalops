@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { Plus } from "lucide-react";
 import { InboxItem } from "@/components/shared/inbox-item";
 import { Drawer, useDrawer } from "@/components/layout/drawer";
 import { PizzaTracker } from "@/components/shared/pizza-tracker";
@@ -50,29 +51,23 @@ const FILTER_CHIPS: { key: FilterKey; label: string }[] = [
 /* Urgencia a colores                                                  */
 /* ------------------------------------------------------------------ */
 
-const URGENCY_ICON_BG: Record<string, string> = {
-  urgent: "bg-red-100",
-  warning: "bg-yellow-100",
-  normal: "bg-blue-100",
-};
-
-const URGENCY_ICON_COLOR: Record<string, string> = {
-  urgent: "text-red-600",
-  warning: "text-yellow-600",
-  normal: "text-blue-600",
+const URGENCY_ICON_STYLES: Record<string, { bg: string; color: string }> = {
+  urgent: { bg: "rgba(239,68,68,0.15)", color: "var(--danger)" },
+  warning: { bg: "rgba(245,158,11,0.15)", color: "var(--warning)" },
+  normal: { bg: "rgba(99,102,241,0.15)", color: "var(--primary-color)" },
 };
 
 /* ------------------------------------------------------------------ */
 /* Badge color por status                                              */
 /* ------------------------------------------------------------------ */
 
-const BADGE_COLOR_BY_STATUS: Record<string, string> = {
-  new: "bg-blue-100 text-blue-700",
-  contacted: "bg-yellow-100 text-yellow-700",
-  meeting_scheduled: "bg-green-100 text-green-700",
-  proposal_sent: "bg-purple-100 text-purple-700",
-  won: "bg-green-100 text-green-700",
-  lost: "bg-red-100 text-red-700",
+const BADGE_STYLES_BY_STATUS: Record<string, { bg: string; color: string }> = {
+  new: { bg: "rgba(99,102,241,0.15)", color: "var(--primary-color)" },
+  contacted: { bg: "rgba(245,158,11,0.15)", color: "var(--warning)" },
+  meeting_scheduled: { bg: "rgba(34,197,94,0.15)", color: "var(--success)" },
+  proposal_sent: { bg: "rgba(168,85,247,0.15)", color: "#a855f7" },
+  won: { bg: "rgba(34,197,94,0.15)", color: "var(--success)" },
+  lost: { bg: "rgba(239,68,68,0.15)", color: "var(--danger)" },
 };
 
 /* ------------------------------------------------------------------ */
@@ -160,25 +155,36 @@ export default function LeadsPage() {
   return (
     <div className="space-y-5">
       {/* ============ HEADER ============ */}
-      <div className="flex items-center gap-3">
-        <div
-          className="flex h-10 w-10 items-center justify-center rounded-full"
-          style={{ background: "rgba(99,102,241,0.2)" }}
-        >
-          <UserPlus className="h-5 w-5" style={{ color: "var(--primary-color)" }} />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-full"
+            style={{ background: "rgba(99,102,241,0.2)" }}
+          >
+            <UserPlus className="h-5 w-5" style={{ color: "var(--primary-color)" }} />
+          </div>
+          <h1
+            className="text-2xl font-bold"
+            style={{ fontSize: "24px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+          >
+            Recepcion de Clientes
+          </h1>
+          <span
+            className="inline-flex items-center justify-center rounded-full px-2.5 py-0.5 font-semibold"
+            style={{ fontSize: "13px", background: "rgba(99,102,241,0.2)", color: "var(--primary-color)" }}
+          >
+            {leads.length}
+          </span>
         </div>
-        <h1
-          className="text-2xl font-bold"
-          style={{ fontSize: "24px", color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+        <button
+          type="button"
+          onClick={() => openDrawer("Nuevo Lead", <CreateLeadForm onSuccess={closeDrawer} />)}
+          className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90"
+          style={{ background: "var(--primary-color)" }}
         >
-          Recepcion de Clientes
-        </h1>
-        <span
-          className="inline-flex items-center justify-center rounded-full px-2.5 py-0.5 font-semibold"
-          style={{ fontSize: "13px", background: "rgba(99,102,241,0.2)", color: "var(--primary-color)" }}
-        >
-          {leads.length}
-        </span>
+          <Plus className="h-4 w-4" />
+          Nuevo Lead
+        </button>
       </div>
 
       {/* ============ FILTER CHIPS ============ */}
@@ -236,12 +242,12 @@ export default function LeadsPage() {
                 key={lead.id}
                 id={String(lead.id)}
                 icon={<UserPlus className="h-5 w-5" />}
-                iconBg={URGENCY_ICON_BG[urgency] || "bg-blue-100"}
-                iconColor={URGENCY_ICON_COLOR[urgency] || "text-blue-600"}
+                iconBg={URGENCY_ICON_STYLES[urgency]?.bg || "rgba(99,102,241,0.15)"}
+                iconColor={URGENCY_ICON_STYLES[urgency]?.color || "var(--primary-color)"}
                 title={lead.full_name}
                 subtitle={subtitle}
                 badge={LEAD_STATUS_LABELS[lead.status] || lead.status}
-                badgeColor={BADGE_COLOR_BY_STATUS[lead.status] || "bg-gray-100 text-gray-700"}
+                badgeColor={BADGE_STYLES_BY_STATUS[lead.status]?.bg || "var(--bg-tertiary)"}
                 timeText={getRelativeTime(lead.created_at)}
                 timeUrgent={urgency === "urgent"}
                 actionLabel={getNextActionLabel(lead.process_id, lead.status)}
@@ -347,6 +353,133 @@ function LeadDetail({
         />
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Create Lead Form                                                     */
+/* ------------------------------------------------------------------ */
+
+const SOURCE_OPTIONS = [
+  { value: "inbound_call", label: "Llamada" },
+  { value: "walk_in", label: "Visita" },
+  { value: "referral", label: "Referido" },
+  { value: "scraper_legalbot", label: "LegalBOT" },
+  { value: "other", label: "Otro" },
+];
+
+function CreateLeadForm({ onSuccess }: { onSuccess: () => void }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({
+    full_name: "",
+    email: "",
+    phone: "",
+    source: "inbound_call",
+    notes: "",
+  });
+
+  const mutation = useMutation({
+    mutationFn: (body: typeof form) => api.post("/leads", body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      onSuccess();
+    },
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.full_name.trim()) return;
+    mutation.mutate(form);
+  }
+
+  const inputStyle = {
+    background: "var(--bg-tertiary)",
+    color: "var(--text-primary)",
+    border: "1px solid var(--glass-border)",
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
+          Nombre completo *
+        </label>
+        <input
+          type="text"
+          value={form.full_name}
+          onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+          className="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+          style={inputStyle}
+          required
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
+            Email
+          </label>
+          <input
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            className="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+            style={inputStyle}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
+            Telefono
+          </label>
+          <input
+            type="tel"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            className="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+            style={inputStyle}
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
+          Fuente
+        </label>
+        <select
+          value={form.source}
+          onChange={(e) => setForm({ ...form, source: e.target.value })}
+          className="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+          style={inputStyle}
+        >
+          {SOURCE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
+          Notas
+        </label>
+        <textarea
+          value={form.notes}
+          onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          rows={3}
+          className="w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-y"
+          style={inputStyle}
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={mutation.isPending || !form.full_name.trim()}
+        className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+        style={{ background: "var(--primary-color)" }}
+      >
+        {mutation.isPending ? "Creando..." : "Crear Lead"}
+      </button>
+      {mutation.isError && (
+        <p className="text-xs text-center" style={{ color: "var(--danger)" }}>
+          Error al crear el lead. Intente nuevamente.
+        </p>
+      )}
+    </form>
   );
 }
 

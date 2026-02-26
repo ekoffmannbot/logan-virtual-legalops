@@ -2,22 +2,15 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getToken } from "@/lib/api";
 
 export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // Auto-login as demo user and go directly to dashboard
-    const demoUser = {
-      id: 1,
-      organization_id: 1,
-      email: "admin@logan.cl",
-      full_name: "Carlos Logan",
-      role: "gerente_legal",
-      active: true,
-    };
-    localStorage.setItem("demo_user", JSON.stringify(demoUser));
-    router.replace("/dashboard");
+    // Redirect to dashboard if authenticated, otherwise to login
+    const token = getToken();
+    router.replace(token ? "/dashboard" : "/login");
   }, [router]);
 
   return (

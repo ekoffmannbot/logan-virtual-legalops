@@ -62,6 +62,42 @@ def _map_template(tmpl) -> dict:
     }
 
 
+# ── Admin Dashboard ──────────────────────────────────────────────────────────
+
+@router.get("/dashboard")
+def admin_dashboard(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(RoleEnum.GERENTE_LEGAL, RoleEnum.ADMINISTRACION)
+    ),
+):
+    """Admin overview dashboard with system-level stats."""
+    org_id = current_user.organization_id
+    from app.db.models import (
+        User as UserModel, Lead, Matter, Invoice, Template, AIAgent,
+    )
+    total_users = db.query(UserModel).filter(UserModel.organization_id == org_id).count()
+    active_users = db.query(UserModel).filter(
+        UserModel.organization_id == org_id, UserModel.active.is_(True)
+    ).count()
+    total_leads = db.query(Lead).filter(Lead.organization_id == org_id).count()
+    total_matters = db.query(Matter).filter(Matter.organization_id == org_id).count()
+    total_invoices = db.query(Invoice).filter(Invoice.organization_id == org_id).count()
+    total_templates = db.query(Template).filter(Template.organization_id == org_id).count()
+    total_agents = db.query(AIAgent).filter(AIAgent.organization_id == org_id).count()
+    active_agents = db.query(AIAgent).filter(
+        AIAgent.organization_id == org_id, AIAgent.is_active.is_(True)
+    ).count()
+    return {
+        "users": {"total": total_users, "active": active_users},
+        "leads": total_leads,
+        "matters": total_matters,
+        "invoices": total_invoices,
+        "templates": total_templates,
+        "agents": {"total": total_agents, "active": active_agents},
+    }
+
+
 # ── Users endpoints ──────────────────────────────────────────────────────────
 
 @router.get("/users")

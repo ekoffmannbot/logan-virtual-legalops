@@ -542,3 +542,104 @@ def get_action_items(db: Session, org_id: int) -> dict:
         "agentInsights": agent_insights,
         "quickNumbers": quick_numbers,
     }
+
+
+def get_stats(db: Session, org_id: int) -> dict:
+    """Dashboard stats with week-over-week trend calculations."""
+    now = datetime.now(timezone.utc)
+    one_week_ago = now - timedelta(days=7)
+    two_weeks_ago = now - timedelta(days=14)
+
+    def _count(model, filter_cond, since=None):
+        q = db.query(func.count(model.id)).filter(
+            model.organization_id == org_id,
+            filter_cond,
+        )
+        if since:
+            q = q.filter(model.created_at >= since)
+        return q.scalar() or 0
+
+    # Current counts
+    open_matters = _count(Matter, Matter.status == MatterStatusEnum.OPEN)
+    active_leads = _count(Lead, Lead.status.in_([LeadStatusEnum.NEW, LeadStatusEnum.CONTACTED]))
+    overdue_invoices = _count(Invoice, Invoice.status == InvoiceStatusEnum.OVERDUE)
+    pending_tasks = _count(Task, Task.status.in_([TaskStatusEnum.OPEN, TaskStatusEnum.IN_PROGRESS]))
+
+    # Totals for collection rate
+    total_invoiced = (
+        db.query(func.coalesce(func.sum(Invoice.amount), 0))
+        .filter(Invoice.organization_id == org_id)
+        .scalar()
+    ) or 0
+    total_collected = (
+        db.query(func.coalesce(func.sum(Invoice.amount), 0))
+        .filter(Invoice.organization_id == org_id, Invoice.status == InvoiceStatusEnum.PAID)
+        .scalar()
+    ) or 0
+
+    # Week-over-week trends (new items this week vs last week)
+    leads_this_week = _count(Lead, Lead.id > 0, since=one_week_ago)
+    leads_last_week = (
+        db.query(func.count(Lead.id))
+        .filter(
+            Lead.organization_id == org_id,
+            Lead.created_at >= two_weeks_ago,
+            Lead.created_at < one_week_ago,
+        )
+        .scalar() or 0
+    )
+
+    matters_this_week = _count(Matter, Matter.id > 0, since=one_week_ago)
+    matters_last_week = (
+        db.query(func.count(Matter.id))
+        .filter(
+            Matter.organization_id == org_id,
+            Matter.created_at >= two_weeks_ago,
+            Matter.created_at < one_week_ago,
+        )
+        .scalar() or 0
+    )
+
+    def _trend_pct(current, previous):
+        if previous == 0:
+            return 0 if current == 0 else 100
+        return round(((current - previous) / previous) * 100)
+
+    # Matters by type and leads by status for charts
+    matters_rows = (
+        db.query(Matter.matter_type, func.count(Matter.id).label("cnt"))
+        .filter(Matter.organization_id == org_id)
+        .group_by(Matter.matter_type)
+        .all()
+    )
+    matters_by_type = {
+        (r.matter_type if isinstance(r.matter_type, str) else r.matter_type.value): r.cnt
+        for r in matters_rows
+    }
+
+    leads_rows = (
+        db.query(Lead.status, func.count(Lead.id).label("cnt"))
+        .filter(Lead.organization_id == org_id)
+        .group_by(Lead.status)
+        .all()
+    )
+    leads_by_status = {
+        (r.status if isinstance(r.status, str) else r.status.value): r.cnt
+        for r in leads_rows
+    }
+
+    return {
+        "open_matters": open_matters,
+        "active_leads": active_leads,
+        "overdue_invoices": overdue_invoices,
+        "pending_tasks": pending_tasks,
+        "total_invoiced": total_invoiced,
+        "total_collected": total_collected,
+        "collection_rate": round((total_collected / total_invoiced * 100), 1) if total_invoiced > 0 else 0,
+        "matters_by_type": matters_by_type,
+        "leads_by_status": leads_by_status,
+        "trends": {
+            "leads": _trend_pct(leads_this_week, leads_last_week),
+            "matters": _trend_pct(matters_this_week, matters_last_week),
+        },
+    }

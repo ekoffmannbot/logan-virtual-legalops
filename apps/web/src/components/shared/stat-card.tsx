@@ -5,11 +5,11 @@ import { LucideIcon } from "lucide-react";
 
 type Variant = "warning" | "info" | "success" | "danger";
 
-const VARIANT_CLASSES: Record<Variant, string> = {
-  warning: "border-l-4 border-yellow-400",
-  info: "border-l-4 border-blue-400",
-  success: "border-l-4 border-green-400",
-  danger: "border-l-4 border-red-400",
+const VARIANT_COLORS: Record<Variant, string> = {
+  warning: "var(--warning)",
+  info: "var(--primary-color)",
+  success: "var(--success)",
+  danger: "var(--danger)",
 };
 
 interface StatCardProps {
@@ -23,27 +23,46 @@ interface StatCardProps {
 }
 
 export function StatCard({ title, value, description, icon: Icon, trend, variant, className }: StatCardProps) {
+  const accentColor = variant ? VARIANT_COLORS[variant] : "var(--primary-color)";
+
   return (
-    <div className={cn("rounded-xl border bg-white p-6", variant && VARIANT_CLASSES[variant], className)}>
+    <div
+      className={cn("rounded-xl p-6", className)}
+      style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--glass-border)",
+        borderLeft: variant ? `4px solid ${accentColor}` : undefined,
+      }}
+    >
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-muted-foreground">{title}</p>
+        <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+          {title}
+        </p>
         {Icon && (
-          <div className="rounded-lg bg-primary/10 p-2">
-            <Icon className="h-4 w-4 text-primary" />
+          <div
+            className="rounded-lg p-2"
+            style={{ background: `${accentColor}15` }}
+          >
+            <Icon className="h-4 w-4" style={{ color: accentColor }} />
           </div>
         )}
       </div>
       <div className="mt-2">
-        <p className="text-2xl font-bold">{value}</p>
+        <p
+          className="text-2xl font-bold"
+          style={{ color: "var(--text-primary)", fontFamily: "'Outfit', sans-serif" }}
+        >
+          {value}
+        </p>
         {description && (
-          <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+          <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+            {description}
+          </p>
         )}
         {trend && (
           <p
-            className={cn(
-              "mt-1 text-xs font-medium",
-              trend.value >= 0 ? "text-green-600" : "text-red-600"
-            )}
+            className="mt-1 text-xs font-medium"
+            style={{ color: trend.value >= 0 ? "var(--success)" : "var(--danger)" }}
           >
             {trend.value >= 0 ? "+" : ""}
             {trend.value}% {trend.label}

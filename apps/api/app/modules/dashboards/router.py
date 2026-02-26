@@ -23,3 +23,11 @@ def get_action_items(
     current_user=Depends(get_current_user),
 ):
     return service.get_action_items(db, current_user.organization_id)
+
+
+@router.get("/stats")
+def get_stats(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    return service.get_stats(db, current_user.organization_id)

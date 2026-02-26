@@ -659,6 +659,85 @@ export interface AuditLog {
   created_at: string;
 }
 
+// ---------- AI Agent ----------
+export type AgentTaskStatus = "pending" | "running" | "completed" | "failed" | "escalated";
+export type AgentTaskTrigger = "scheduled" | "event" | "manual" | "agent_request";
+export type AgentMessageRole = "system" | "user" | "assistant" | "tool";
+
+export interface AIAgentSkill {
+  id: number;
+  agent_id: number;
+  skill_key: string;
+  skill_name: string;
+  is_autonomous: boolean;
+  is_enabled: boolean;
+  config_json: Record<string, unknown> | null;
+}
+
+export interface AIAgent {
+  id: number;
+  organization_id: number;
+  role: string;
+  display_name: string;
+  avatar_url: string | null;
+  model_provider: string;
+  model_name: string;
+  system_prompt: string;
+  temperature: number;
+  max_tokens: number;
+  is_active: boolean;
+  skills: AIAgentSkill[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AIAgentTask {
+  id: number;
+  organization_id: number;
+  agent_id: number;
+  task_type: string;
+  trigger_type: AgentTaskTrigger;
+  status: AgentTaskStatus;
+  input_data: Record<string, unknown> | null;
+  output_data: Record<string, unknown> | null;
+  error_message: string | null;
+  escalation_reason: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentConversationMessage {
+  id: number;
+  thread_id: string;
+  message_role: AgentMessageRole;
+  content: string;
+  tool_calls: Record<string, unknown>[] | null;
+  token_count_input: number | null;
+  token_count_output: number | null;
+  model_used: string | null;
+  latency_ms: number | null;
+  created_at: string;
+}
+
+export interface AgentCostSummary {
+  agent_id: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_tasks: number;
+  estimated_cost_usd: number;
+}
+
+export interface AgentExecuteResponse {
+  agent_id: number;
+  task_id: number;
+  thread_id: string;
+  response: string;
+  status: AgentTaskStatus;
+  escalation_reason: string | null;
+}
+
 // ---------- Timeline Event (frontend composite) ----------
 export interface TimelineEvent {
   id: string;

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
-import { ROLE_LABELS } from "@/lib/constants";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
-/* Nav structure matching the reference design                         */
+/* Nav structure — Agent command center layout                         */
 /* ------------------------------------------------------------------ */
 
 interface NavItemDef {
@@ -24,32 +25,31 @@ interface NavGroupDef {
 
 const NAV_GROUPS: NavGroupDef[] = [
   {
-    label: "Principal",
+    label: "Comando",
     items: [
-      { label: "Inicio", href: "/dashboard", emoji: "\u{1F3E0}", badge: 3 },
-      { label: "Leads", href: "/leads", emoji: "\u{1F465}", badge: 5 },
-      { label: "Casos", href: "/matters", emoji: "\u{2696}\u{FE0F}" },
-      { label: "Calendario", href: "/calendar", emoji: "\u{1F4C5}" },
+      { label: "Panel Principal", href: "/dashboard", emoji: "\uD83C\uDFE0" },
+      { label: "Mis Agentes", href: "/agents", emoji: "\u2728" },
+      { label: "Notificaciones", href: "/notifications", emoji: "\uD83D\uDD14" },
     ],
   },
   {
-    label: "Gesti\u00f3n",
+    label: "Operaciones",
     items: [
-      { label: "Propuestas", href: "/proposals", emoji: "\u{1F4DD}", badge: 8 },
-      { label: "Contratos", href: "/contracts", emoji: "\u{1F4C4}" },
-      { label: "Notar\u00eda", href: "/notary", emoji: "\u{1F3DB}\u{FE0F}" },
-      { label: "Revisi\u00f3n Causas", href: "/case-review", emoji: "\u{1F50D}" },
-      { label: "Cobranza", href: "/collections", emoji: "\u{1F4B0}", badge: 5 },
-      { label: "Correos", href: "/email-tickets", emoji: "\u{1F4E7}" },
-      { label: "Scraper", href: "/scraper", emoji: "\u{1F916}" },
+      { label: "Leads", href: "/leads", emoji: "\uD83D\uDC65" },
+      { label: "Casos", href: "/matters", emoji: "\u2696\uFE0F" },
+      { label: "Propuestas", href: "/proposals", emoji: "\uD83D\uDCDD" },
+      { label: "Contratos", href: "/contracts", emoji: "\uD83D\uDCC4" },
+      { label: "Cobranza", href: "/collections", emoji: "\uD83D\uDCB0" },
+      { label: "Correos", href: "/email-tickets", emoji: "\uD83D\uDCE7" },
     ],
   },
   {
     label: "Herramientas",
     items: [
-      { label: "Agentes IA", href: "/agents", emoji: "\u{2728}" },
-      { label: "Bandeja", href: "/bandeja", emoji: "\u{1F4E5}" },
-      { label: "Admin", href: "/admin", emoji: "\u{2699}\u{FE0F}" },
+      { label: "Documentos", href: "/documents", emoji: "\uD83D\uDCC2" },
+      { label: "Notar\u00eda", href: "/notary", emoji: "\uD83C\uDFDB\uFE0F" },
+      { label: "Calendario", href: "/calendar", emoji: "\uD83D\uDCC5" },
+      { label: "Reportes", href: "/reports", emoji: "\uD83D\uDCCA" },
     ],
   },
 ];
@@ -79,7 +79,24 @@ export function Sidebar() {
   const { user, logout } = useAuth();
 
   const initials = user?.full_name ? getInitials(user.full_name) : "??";
-  const roleName = user?.role ? ROLE_LABELS[user.role] || user.role : "";
+
+  // Dynamic notification count for sidebar badge
+  const { data: notifData } = useQuery<{ count: number }>({
+    queryKey: ["notifications-unread-count"],
+    queryFn: () => api.get("/notifications/unread-count"),
+    refetchInterval: 30000,
+  });
+  const unreadCount = notifData?.count ?? 0;
+
+  // Inject badge into nav groups
+  const navGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.map((item) =>
+      item.href === "/notifications" && unreadCount > 0
+        ? { ...item, badge: unreadCount }
+        : item
+    ),
+  }));
 
   return (
     <aside
@@ -122,7 +139,7 @@ export function Sidebar() {
 
       {/* ---- Navigation ---- */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {NAV_GROUPS.map((group) => (
+        {navGroups.map((group) => (
           <div key={group.label} className="mb-2">
             <div
               className="mb-1 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest"
@@ -159,7 +176,6 @@ export function Sidebar() {
                       (e.currentTarget as HTMLElement).style.background = "";
                   }}
                 >
-                  {/* Active indicator bar */}
                   {active && (
                     <span
                       className="absolute left-0 top-1/2 h-[60%] w-[3px] -translate-y-1/2 rounded-r"
@@ -211,10 +227,10 @@ export function Sidebar() {
           </div>
           <div className="flex-1 text-left">
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-              {user?.full_name || "Usuario"}
+              {user?.full_name || "Gerente Legal"}
             </p>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {roleName}
+              Gerente Legal
             </p>
           </div>
         </button>

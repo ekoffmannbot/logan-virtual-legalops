@@ -21,7 +21,7 @@ class TemplateUpdate(BaseModel):
 
 class TemplateResponse(BaseModel):
     id: int
-    org_id: int
+    organization_id: int
     template_type: str
     name: str
     content_text: str

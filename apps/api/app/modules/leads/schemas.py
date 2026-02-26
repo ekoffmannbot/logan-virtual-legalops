@@ -1,7 +1,18 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+
+# Map Spanish/friendly source names to enum values
+_SOURCE_ALIASES = {
+    "llamada": "inbound_call",
+    "visita": "walk_in",
+    "referido": "referral",
+    "legalbot": "scraper_legalbot",
+    "otro": "other",
+}
+_VALID_SOURCES = {"inbound_call", "walk_in", "scraper_legalbot", "referral", "other"}
 
 
 # ---------------------------------------------------------------------------
@@ -14,6 +25,19 @@ class LeadCreate(BaseModel):
     phone: Optional[str] = None
     source: str
     notes: Optional[str] = None
+
+    @field_validator("source")
+    @classmethod
+    def normalize_source(cls, v: str) -> str:
+        low = v.lower().strip()
+        if low in _SOURCE_ALIASES:
+            return _SOURCE_ALIASES[low]
+        if low in _VALID_SOURCES:
+            return low
+        raise ValueError(
+            f"Fuente no válida: '{v}'. "
+            f"Valores: {sorted(_VALID_SOURCES | set(_SOURCE_ALIASES.keys()))}"
+        )
 
 
 class LeadUpdate(BaseModel):

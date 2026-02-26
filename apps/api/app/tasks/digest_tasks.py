@@ -13,17 +13,7 @@ from app.db.enums import TaskStatusEnum, InvoiceStatusEnum, EmailTicketStatusEnu
 
 logger = logging.getLogger(__name__)
 
-
-def _ai_draft(prompt: str, fallback: str) -> str:
-    """Call AI provider with graceful fallback to rule-based text."""
-    try:
-        from app.modules.ai_assistant.provider import get_ai_provider
-        provider = get_ai_provider()
-        result = provider.ask(prompt, "")
-        return result.get("answer", fallback)
-    except Exception as exc:
-        logger.warning("AI draft failed, using fallback: %s", exc)
-        return fallback
+AGENT_ROLE = "secretaria"
 
 
 @celery_app.task(name="app.tasks.digest_tasks.daily_digest")
@@ -31,9 +21,10 @@ def daily_digest():
     """Generate daily digest with AI summary and send via email to managers."""
     db = SessionLocal()
     try:
+        from app.core.agent_dispatch import agent_draft, get_agent_id
+
         now = datetime.now(timezone.utc)
 
-        # ── Gather data ──────────────────────────────────────────────
         overdue_tasks = (
             db.query(Task)
             .filter(
@@ -63,7 +54,6 @@ def daily_digest():
             .all()
         )
 
-        # ── Build context for AI ─────────────────────────────────────
         total_overdue_amount = sum(inv.amount for inv in overdue_invoices)
 
         context_lines = [
@@ -80,44 +70,48 @@ def daily_digest():
             f"Se requiere atencion a los items pendientes."
         )
 
-        ai_summary = _ai_draft(
+        # Use all orgs - get first org_id from any of the collected data
+        org_ids = set()
+        for t in overdue_tasks:
+            org_ids.add(t.organization_id)
+        for inv in overdue_invoices:
+            org_ids.add(inv.organization_id)
+        for ticket in sla_at_risk:
+            org_ids.add(ticket.organization_id)
+        if not org_ids:
+            org_ids = {1}  # Default org
+
+        first_org = next(iter(org_ids))
+        ai_summary = agent_draft(
+            db, first_org, AGENT_ROLE,
             f"Genera un resumen ejecutivo breve (5-8 lineas) del estado del estudio juridico hoy. "
             f"Datos:\n{context}\n\n"
             f"Incluye: situacion general, prioridades del dia, y recomendaciones concretas. "
             f"Tono profesional, directo, en espanol chileno.",
-            fallback_summary,
+            fallback_summary, task_type="daily_digest",
         )
 
-        # ── Group by org and log ─────────────────────────────────────
-        org_counts = defaultdict(int)
-        for task in overdue_tasks:
-            org_counts[task.organization_id] += 1
-
-        for inv in overdue_invoices:
-            org_counts.setdefault(inv.organization_id, 0)
-        for ticket in sla_at_risk:
-            org_counts.setdefault(ticket.organization_id, 0)
-
-        for org_id in org_counts:
+        for org_id in org_ids:
             db.add(AuditLog(
                 organization_id=org_id,
                 actor_user_id=None,
+                agent_id=get_agent_id(db, org_id, AGENT_ROLE),
                 action="auto:daily_digest_generated",
                 entity_type="task",
                 entity_id=None,
                 after_json={
                     "agent": "Secretaria",
-                    "detail": f"Resumen diario: {org_counts[org_id]} tarea(s) vencida(s), "
+                    "detail": f"Resumen diario: {len(overdue_tasks)} tarea(s) vencida(s), "
                               f"{len(overdue_invoices)} factura(s) morosa(s)",
                     "detail_long": ai_summary,
                     "status": "completed",
-                    "type": "warning" if org_counts[org_id] > 0 else "info",
+                    "type": "warning" if overdue_tasks else "info",
                 },
             ))
 
         db.commit()
 
-        # ── Send email to managers ───────────────────────────────────
+        # Send email to managers
         from app.core.email import send_email
 
         managers = (
@@ -132,7 +126,7 @@ def daily_digest():
             f"<pre style='font-family: sans-serif; line-height: 1.6;'>{ai_summary}</pre>"
             f"<hr>"
             f"<p style='color: #888; font-size: 12px;'>"
-            f"Generado automaticamente por el agente Secretaria de Logan Virtual.</p>"
+            f"Generado por la agente Secretaria de Logan Virtual.</p>"
         )
 
         emails_sent = 0

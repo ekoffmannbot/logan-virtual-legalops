@@ -62,13 +62,13 @@ function formatCLP(amount: number | null | undefined): string {
 function getIconBg(status: string): string {
   switch (status) {
     case "overdue":
-      return "bg-red-100";
+      return "rgba(239,68,68,0.15)";
     case "due":
-      return "bg-yellow-100";
+      return "rgba(245,158,11,0.15)";
     case "paid":
-      return "bg-green-100";
+      return "rgba(34,197,94,0.15)";
     default:
-      return "bg-blue-100";
+      return "rgba(99,102,241,0.15)";
   }
 }
 
@@ -76,13 +76,13 @@ function getIconBg(status: string): string {
 function getIconColor(status: string): string {
   switch (status) {
     case "overdue":
-      return "text-red-600";
+      return "var(--danger)";
     case "due":
-      return "text-yellow-600";
+      return "var(--warning)";
     case "paid":
-      return "text-green-600";
+      return "var(--success)";
     default:
-      return "text-blue-600";
+      return "var(--primary-color)";
   }
 }
 
@@ -90,15 +90,15 @@ function getIconColor(status: string): string {
 function getBadgeColor(status: string): string {
   switch (status) {
     case "overdue":
-      return "bg-red-100 text-red-800";
+      return "rgba(239,68,68,0.15)";
     case "due":
-      return "bg-yellow-100 text-yellow-800";
+      return "rgba(245,158,11,0.15)";
     case "paid":
-      return "bg-green-100 text-green-800";
+      return "rgba(34,197,94,0.15)";
     case "scheduled":
-      return "bg-blue-100 text-blue-800";
+      return "rgba(99,102,241,0.15)";
     default:
-      return "bg-gray-100 text-gray-700";
+      return "var(--bg-tertiary)";
   }
 }
 

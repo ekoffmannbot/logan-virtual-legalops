@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, agentApi } from "@/lib/api";
+import type { AIAgent } from "@/lib/types";
+import { AGENT_COLORS, AGENT_EMOJIS, MODEL_LABELS } from "@/lib/constants";
 import { useAuth } from "@/lib/auth";
 import { getProcessProgress } from "@/lib/process-status-map";
 import { Drawer, useDrawer } from "@/components/layout/drawer";
@@ -84,44 +86,37 @@ interface ActionItems {
 interface StatConfig {
   label: string;
   key: keyof ActionItems["quickNumbers"];
+  trendKey?: string;
   icon: React.ReactNode;
   iconBg: string;
-  trend: string;
-  trendUp: boolean;
 }
 
 const STAT_CARDS: StatConfig[] = [
   {
     label: "Leads Activos",
     key: "leads",
+    trendKey: "leads",
     icon: <UserPlus className="h-6 w-6" style={{ color: "#6366f1" }} />,
     iconBg: "rgba(99, 102, 241, 0.2)",
-    trend: "+12%",
-    trendUp: true,
   },
   {
     label: "Propuestas",
     key: "proposals",
     icon: <FileText className="h-6 w-6" style={{ color: "#2dd4bf" }} />,
     iconBg: "rgba(45, 212, 191, 0.2)",
-    trend: "+8%",
-    trendUp: true,
   },
   {
     label: "Casos Abiertos",
     key: "matters",
+    trendKey: "matters",
     icon: <Briefcase className="h-6 w-6" style={{ color: "#f59e0b" }} />,
     iconBg: "rgba(245, 158, 11, 0.2)",
-    trend: "+3%",
-    trendUp: true,
   },
   {
     label: "Vencidos",
     key: "overdue",
     icon: <DollarSign className="h-6 w-6" style={{ color: "#ef4444" }} />,
     iconBg: "rgba(239, 68, 68, 0.2)",
-    trend: "-5%",
-    trendUp: false,
   },
 ];
 
@@ -201,6 +196,20 @@ export default function DashboardPage() {
   const { data, isLoading, error } = useQuery<ActionItems>({
     queryKey: ["dashboard-action-items"],
     queryFn: () => api.get("/dashboards/action-items"),
+    refetchInterval: 30000,
+  });
+
+  const { data: agents = [] } = useQuery<AIAgent[]>({
+    queryKey: ["agents"],
+    queryFn: () => agentApi.list(),
+  });
+
+  const { data: stats } = useQuery<{
+    trends?: { leads?: number; matters?: number };
+  }>({
+    queryKey: ["dashboard-stats"],
+    queryFn: () => api.get("/dashboards/stats"),
+    refetchInterval: 60000,
   });
 
   /* ---- Loading ---- */
@@ -373,61 +382,136 @@ export default function DashboardPage() {
       {/* Stat Cards Grid                                               */}
       {/* ============================================================ */}
       <div className="stats-grid-4 grid grid-cols-4 gap-6">
-        {STAT_CARDS.map((stat, i) => (
-          <div
-            key={stat.key}
-            className="glass-card glass-card-interactive animate-fade-in-up relative overflow-hidden p-6"
-            style={{ animationDelay: `${(i + 1) * 0.1}s` }}
-          >
-            {/* Top gradient bar on hover (via CSS ::before in glass-card) */}
-            <div
-              className="absolute left-0 top-0 h-1 w-full opacity-0 transition-opacity duration-300"
-              style={{
-                background: "linear-gradient(90deg, var(--primary-color), var(--accent-color))",
-              }}
-            />
+        {STAT_CARDS.map((stat, i) => {
+          const trendValue = stat.trendKey
+            ? (stats?.trends as Record<string, number> | undefined)?.[stat.trendKey] ?? null
+            : null;
+          const trendUp = trendValue !== null ? trendValue >= 0 : true;
+          const trendLabel = trendValue !== null
+            ? `${trendValue >= 0 ? "+" : ""}${trendValue}%`
+            : null;
 
+          return (
             <div
-              className="mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-[14px]"
-              style={{ background: stat.iconBg }}
+              key={stat.key}
+              className="glass-card glass-card-interactive animate-fade-in-up relative overflow-hidden p-6"
+              style={{ animationDelay: `${(i + 1) * 0.1}s` }}
             >
-              {stat.icon}
-            </div>
+              <div
+                className="absolute left-0 top-0 h-1 w-full opacity-0 transition-opacity duration-300"
+                style={{
+                  background: "linear-gradient(90deg, var(--primary-color), var(--accent-color))",
+                }}
+              />
 
-            <div
-              className="mb-1 text-4xl font-extrabold"
-              style={{
-                fontFamily: "'Outfit', sans-serif",
-                letterSpacing: "-1px",
-                color: "var(--text-primary)",
-              }}
-            >
-              {data.quickNumbers[stat.key]}
-            </div>
-            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              {stat.label}
-            </div>
+              <div
+                className="mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-[14px]"
+                style={{ background: stat.iconBg }}
+              >
+                {stat.icon}
+              </div>
 
-            {/* Trend badge */}
-            <div
-              className="absolute right-6 top-6 flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold"
-              style={{
-                background: stat.trendUp
-                  ? "rgba(34, 197, 94, 0.15)"
-                  : "rgba(239, 68, 68, 0.15)",
-                color: stat.trendUp ? "var(--success)" : "var(--danger)",
-              }}
-            >
-              {stat.trendUp ? (
-                <ArrowUpRight className="h-3 w-3" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3" />
+              <div
+                className="mb-1 text-4xl font-extrabold"
+                style={{
+                  fontFamily: "'Outfit', sans-serif",
+                  letterSpacing: "-1px",
+                  color: "var(--text-primary)",
+                }}
+              >
+                {data.quickNumbers[stat.key]}
+              </div>
+              <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                {stat.label}
+              </div>
+
+              {trendLabel && (
+                <div
+                  className="absolute right-6 top-6 flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                  style={{
+                    background: trendUp
+                      ? "rgba(34, 197, 94, 0.15)"
+                      : "rgba(239, 68, 68, 0.15)",
+                    color: trendUp ? "var(--success)" : "var(--danger)",
+                  }}
+                >
+                  {trendUp ? (
+                    <ArrowUpRight className="h-3 w-3" />
+                  ) : (
+                    <ArrowDownRight className="h-3 w-3" />
+                  )}
+                  {trendLabel}
+                </div>
               )}
-              {stat.trend}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {/* ============================================================ */}
+      {/* Agent Fleet Status                                            */}
+      {/* ============================================================ */}
+      {agents.length > 0 && (
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bot className="h-5 w-5" style={{ color: "var(--primary-color)" }} />
+              <h2
+                className="text-lg font-bold"
+                style={{ fontFamily: "'Outfit', sans-serif", color: "var(--text-primary)" }}
+              >
+                Flota de Agentes
+              </h2>
+              <span
+                className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                style={{ background: "rgba(34,197,94,0.2)", color: "var(--success)" }}
+              >
+                {agents.filter((a) => a.is_active).length} activos
+              </span>
+            </div>
+            <Link
+              href="/agents"
+              className="flex items-center gap-1.5 text-[13px] transition-all hover:gap-2.5"
+              style={{ color: "var(--primary-color)" }}
+            >
+              Gestionar <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-4 gap-3 lg:grid-cols-8">
+            {agents.map((agent) => {
+              const color = AGENT_COLORS[agent.role] || "#6366f1";
+              const emoji = AGENT_EMOJIS[agent.role] || "\uD83E\uDD16";
+              return (
+                <Link
+                  key={agent.id}
+                  href="/agents"
+                  className="glass-card glass-card-interactive flex flex-col items-center gap-2 p-3 text-center"
+                >
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-xl text-xl"
+                    style={{ background: `${color}20` }}
+                  >
+                    {emoji}
+                  </div>
+                  <p
+                    className="text-[11px] font-semibold leading-tight truncate w-full"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {agent.display_name.split(" ")[0]}
+                  </p>
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{
+                      background: agent.is_active ? "var(--success)" : "var(--text-muted)",
+                      boxShadow: agent.is_active ? "0 0 6px var(--success)" : undefined,
+                    }}
+                  />
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ============================================================ */}
       {/* Processes Grid                                                */}

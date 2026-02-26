@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class TaskResponse(BaseModel):
@@ -33,6 +33,22 @@ class TaskStatsResponse(BaseModel):
     overdue: int
 
 
+_TASK_TYPE_ALIASES = {
+    "seguimiento": "follow_up_proposal",
+    "llamada": "callback",
+    "revision": "review_contract",
+    "notarial": "notary_contact",
+    "tribunal": "court_filing",
+    "cobranza": "collection_reminder",
+    "email": "email_response",
+    "scraper": "scraper_review",
+}
+_VALID_TASK_TYPES = {
+    "follow_up_proposal", "callback", "review_contract", "notary_contact",
+    "court_filing", "collection_reminder", "email_response", "scraper_review", "general",
+}
+
+
 class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
@@ -43,6 +59,19 @@ class TaskCreate(BaseModel):
     assigned_role: Optional[str] = None
     due_at: Optional[datetime] = None
     sla_policy: str = "none"
+
+    @field_validator("task_type")
+    @classmethod
+    def normalize_task_type(cls, v: str) -> str:
+        low = v.lower().strip()
+        if low in _TASK_TYPE_ALIASES:
+            return _TASK_TYPE_ALIASES[low]
+        if low in _VALID_TASK_TYPES:
+            return low
+        raise ValueError(
+            f"Tipo de tarea no válido: '{v}'. "
+            f"Valores: {sorted(_VALID_TASK_TYPES | set(_TASK_TYPE_ALIASES.keys()))}"
+        )
 
 
 class TaskUpdate(BaseModel):
