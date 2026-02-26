@@ -50,8 +50,8 @@ export default function AgentsPage() {
   }
 
   const activeCount = agents.filter((a) => a.is_active).length;
-  const totalSkills = agents.reduce((sum, a) => sum + a.skills.filter((s) => s.is_enabled).length, 0);
-  const autonomousSkills = agents.reduce((sum, a) => sum + a.skills.filter((s) => s.is_autonomous).length, 0);
+  const totalSkills = agents.reduce((sum, a) => sum + (a.skills ?? []).filter((s) => s.is_enabled).length, 0);
+  const autonomousSkills = agents.reduce((sum, a) => sum + (a.skills ?? []).filter((s) => s.is_autonomous).length, 0);
 
   /* ---- Render ---- */
   return (
@@ -86,8 +86,9 @@ export default function AgentsPage() {
         {agents.map((agent, i) => {
           const color = AGENT_COLORS[agent.role] || "#6366f1";
           const emoji = AGENT_EMOJIS[agent.role] || "\uD83E\uDD16";
-          const enabledSkills = agent.skills.filter((s) => s.is_enabled).length;
-          const autoSkills = agent.skills.filter((s) => s.is_autonomous).length;
+          const skills = agent.skills ?? [];
+          const enabledSkills = skills.filter((s) => s.is_enabled).length;
+          const autoSkills = skills.filter((s) => s.is_autonomous).length;
 
           return (
             <button
@@ -152,7 +153,7 @@ export default function AgentsPage() {
 
               {/* Skill pills */}
               <div className="mt-3 flex flex-wrap gap-1.5">
-                {agent.skills
+                {skills
                   .filter((s) => s.is_enabled)
                   .slice(0, 3)
                   .map((skill) => (

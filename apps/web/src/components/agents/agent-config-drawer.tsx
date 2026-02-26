@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { agentApi } from "@/lib/api";
 import type { AIAgent, AIAgentTask, AgentConversationMessage, AgentCostSummary } from "@/lib/types";
@@ -95,7 +95,7 @@ export function AgentConfigDrawer({ agent, open, onClose }: AgentConfigDrawerPro
       <div className="space-y-4">
         {activeTab === "general" && <GeneralTab agent={agent} />}
         {activeTab === "personality" && <PersonalityTab agent={agent} />}
-        {activeTab === "skills" && <SkillChecklist agentId={agent.id} skills={agent.skills} />}
+        {activeTab === "skills" && <SkillChecklist agentId={agent.id} skills={agent.skills ?? []} />}
         {activeTab === "chat" && (
           <AgentChat agentId={agent.id} agentRole={agent.role} agentName={agent.display_name} />
         )}
@@ -114,6 +114,9 @@ function GeneralTab({ agent }: { agent: AIAgent }) {
   const queryClient = useQueryClient();
   const [temperature, setTemperature] = useState(agent.temperature);
   const [maxTokens, setMaxTokens] = useState(agent.max_tokens);
+
+  useEffect(() => { setTemperature(agent.temperature); }, [agent.temperature]);
+  useEffect(() => { setMaxTokens(agent.max_tokens); }, [agent.max_tokens]);
 
   const mutation = useMutation({
     mutationFn: (body: Partial<AIAgent>) => agentApi.update(agent.id, body),
@@ -171,9 +174,9 @@ function GeneralTab({ agent }: { agent: AIAgent }) {
       <div>
         <p className="text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Skills</p>
         <p className="text-sm" style={{ color: "var(--text-primary)" }}>
-          {agent.skills.filter((s) => s.is_enabled).length} activas de {agent.skills.length} total
+          {(agent.skills ?? []).filter((s) => s.is_enabled).length} activas de {(agent.skills ?? []).length} total
           {" \u00b7 "}
-          {agent.skills.filter((s) => s.is_autonomous).length} aut\u00f3nomas
+          {(agent.skills ?? []).filter((s) => s.is_autonomous).length} aut\u00f3nomas
         </p>
       </div>
     </div>
@@ -188,6 +191,8 @@ function PersonalityTab({ agent }: { agent: AIAgent }) {
   const queryClient = useQueryClient();
   const [prompt, setPrompt] = useState(agent.system_prompt);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => { setPrompt(agent.system_prompt); }, [agent.system_prompt]);
 
   const mutation = useMutation({
     mutationFn: (body: Partial<AIAgent>) => agentApi.update(agent.id, body),

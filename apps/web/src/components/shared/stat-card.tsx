@@ -6,10 +6,10 @@ import { LucideIcon } from "lucide-react";
 type Variant = "warning" | "info" | "success" | "danger";
 
 const VARIANT_COLORS: Record<Variant, string> = {
-  warning: "var(--warning)",
-  info: "var(--primary-color)",
-  success: "var(--success)",
-  danger: "var(--danger)",
+  warning: "#f59e0b",
+  info: "#6366f1",
+  success: "#22c55e",
+  danger: "#ef4444",
 };
 
 interface StatCardProps {

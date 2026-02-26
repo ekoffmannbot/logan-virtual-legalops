@@ -237,7 +237,7 @@ export default function DashboardPage() {
   }
 
   const firstName = user?.full_name?.split(" ")[0] || "Usuario";
-  const totalPendientes = data.urgent.length + data.today.length + data.inProgress.length;
+  const totalPendientes = (data.urgent?.length ?? 0) + (data.today?.length ?? 0) + (data.inProgress?.length ?? 0);
 
   /* ---- Drawer handlers ---- */
   function handleTaskClick(item: { id: string; type: string; title: string; subtitle?: string; processId?: string; status?: string; amount?: string }) {
@@ -326,7 +326,7 @@ export default function DashboardPage() {
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: 15 }}>
             {totalPendientes > 0
-              ? `Tienes ${totalPendientes} tareas pendientes. ${data.urgent.length > 0 ? `${data.urgent.length} urgentes.` : ""}`
+              ? `Tienes ${totalPendientes} tareas pendientes. ${(data.urgent?.length ?? 0) > 0 ? `${(data.urgent?.length ?? 0)} urgentes.` : ""}`
               : "Todo al d\u00eda. Sin tareas pendientes."}
           </p>
         </div>
@@ -355,7 +355,7 @@ export default function DashboardPage() {
                 color: "var(--accent-color)",
               }}
             >
-              {data.urgent.length}
+              {(data.urgent?.length ?? 0)}
             </div>
             <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
               Urgentes
@@ -369,7 +369,7 @@ export default function DashboardPage() {
                 color: "var(--accent-color)",
               }}
             >
-              {data.completed.length}
+              {(data.completed?.length ?? 0)}
             </div>
             <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
               Completado
@@ -419,7 +419,7 @@ export default function DashboardPage() {
                   color: "var(--text-primary)",
                 }}
               >
-                {data.quickNumbers[stat.key]}
+                {data.quickNumbers?.[stat.key] ?? 0}
               </div>
               <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 {stat.label}
@@ -625,7 +625,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="max-h-80 overflow-y-auto p-3">
-            {[...data.urgent, ...data.today].map((item) => (
+            {[...(data.urgent ?? []), ...(data.today ?? [])].map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -693,7 +693,7 @@ export default function DashboardPage() {
               </button>
             ))}
 
-            {data.urgent.length === 0 && data.today.length === 0 && (
+            {(data.urgent?.length ?? 0) === 0 && (data.today?.length ?? 0) === 0 && (
               <div className="py-8 text-center" style={{ color: "var(--text-muted)" }}>
                 <p className="text-4xl mb-3 opacity-50">{"\u2705"}</p>
                 <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
@@ -728,7 +728,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="max-h-80 overflow-y-auto p-3">
-            {data.inProgress.map((item) => {
+            {(data.inProgress ?? []).map((item) => {
               const progress = getProcessProgress(item.processId, item.status);
               return (
                 <button
@@ -781,7 +781,7 @@ export default function DashboardPage() {
               );
             })}
 
-            {data.inProgress.length === 0 && (
+            {(data.inProgress?.length ?? 0) === 0 && (
               <div className="py-8 text-center" style={{ color: "var(--text-muted)" }}>
                 <p className="text-4xl mb-3 opacity-50">{"\uD83D\uDCAD"}</p>
                 <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>

@@ -33,21 +33,10 @@ def _get_service(db: Session = Depends(get_db), user: User = Depends(get_current
 
 # ── List & Detail ─────────────────────────────────────────────────────────────
 
-@router.get("/", response_model=list[AgentSummaryOut])
+@router.get("/", response_model=list[AgentOut])
 def list_agents(deps=Depends(_get_service)):
     svc, user, db = deps
-    agents = svc.list_agents()
-    return [
-        AgentSummaryOut(
-            id=a.id,
-            display_name=a.display_name,
-            role=a.role if isinstance(a.role, str) else a.role.value,
-            model_name=a.model_name,
-            is_active=a.is_active,
-            skill_count=len(a.skills),
-        )
-        for a in agents
-    ]
+    return svc.list_agents()
 
 
 @router.get("/workflows")

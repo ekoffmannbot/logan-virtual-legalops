@@ -64,24 +64,27 @@ def create_app() -> FastAPI:
     def _init_db():
         import logging
         log = logging.getLogger("logan.startup")
-        from app.db.base import Base
-        from app.core.database import engine, SessionLocal
-        import app.db.models  # noqa: F401 — register all models with Base
-        Base.metadata.create_all(bind=engine)
-        log.info("Database tables ensured (%d tables).", len(Base.metadata.tables))
-        # Seed only when database is empty (first run)
-        db = SessionLocal()
         try:
-            from app.db.models import User
-            if db.query(User).count() == 0:
-                log.info("Empty database detected — running seed…")
-                from app.db.seed import seed
-                seed()
-                log.info("Seed completed.")
-            else:
-                log.info("Database already seeded (%d users).", db.query(User).count())
-        finally:
-            db.close()
+            from app.db.base import Base
+            from app.core.database import engine, SessionLocal
+            import app.db.models  # noqa: F401 — register all models with Base
+            Base.metadata.create_all(bind=engine)
+            log.info("✅ Database tables ensured (%d tables).", len(Base.metadata.tables))
+            # Seed only when database is empty (first run)
+            db = SessionLocal()
+            try:
+                from app.db.models import User
+                if db.query(User).count() == 0:
+                    log.info("Empty database detected — running seed…")
+                    from app.db.seed import seed
+                    seed()
+                    log.info("✅ Seed completed.")
+                else:
+                    log.info("✅ Database already seeded (%d users).", db.query(User).count())
+            finally:
+                db.close()
+        except Exception as e:
+            log.error("❌ Database startup failed: %s", e, exc_info=True)
 
     return application
 

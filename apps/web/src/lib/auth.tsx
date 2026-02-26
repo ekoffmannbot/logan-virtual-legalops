@@ -9,7 +9,7 @@ interface User {
   email: string;
   full_name: string;
   role: string;
-  active: boolean;
+  is_active: boolean;
 }
 
 interface AuthContextType {

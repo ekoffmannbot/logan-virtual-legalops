@@ -43,9 +43,9 @@ const CHART_COLORS = ["#6366f1", "#2dd4bf", "#f59e0b", "#ec4899", "#a855f7", "#6
 /* ------------------------------------------------------------------ */
 
 export default function ReportsPage() {
-  const { data: stats, isLoading } = useQuery<DashboardStats>({
+  const { data: stats, isLoading, isError } = useQuery<DashboardStats>({
     queryKey: ["dashboard-stats"],
-    queryFn: () => api.get("/dashboard/stats"),
+    queryFn: () => api.get("/dashboards/stats"),
   });
 
   if (isLoading) {
@@ -56,23 +56,23 @@ export default function ReportsPage() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-2" style={{ color: "var(--danger)" }}>
+        <BarChart3 className="h-8 w-8" />
+        <p style={{ fontSize: "14px" }}>Error al cargar reportes</p>
+      </div>
+    );
+  }
+
   // Build chart data from stats
   const mattersByType = stats?.matters_by_type
     ? Object.entries(stats.matters_by_type).map(([name, value]) => ({ name, value }))
-    : [
-        { name: "Civil", value: 3 },
-        { name: "JPL", value: 2 },
-      ];
+    : [];
 
   const leadsByStatus = stats?.leads_by_status
     ? Object.entries(stats.leads_by_status).map(([name, value]) => ({ name, value }))
-    : [
-        { name: "Nuevo", value: 3 },
-        { name: "Contactado", value: 2 },
-        { name: "Propuesta", value: 1 },
-        { name: "Ganado", value: 1 },
-        { name: "Perdido", value: 1 },
-      ];
+    : [];
 
   const collectionRate = stats?.total_invoiced
     ? Math.round(((stats.total_collected || 0) / stats.total_invoiced) * 100)
